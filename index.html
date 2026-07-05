@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lottie 转 PNG 动图</title>
+  <script src="./node_modules/lottie-web/build/player/lottie.min.js"></script>
+  <script src="./node_modules/pako/dist/pako.min.js"></script>
+  <script src="./node_modules/upng-js/UPNG.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1f2933;
+      --muted: #667085;
+      --line: #d7dde5;
+      --paper: #f6f3ef;
+      --panel: #ffffff;
+      --accent: #0f766e;
+      --accent-dark: #0b5f59;
+      --warm: #b45309;
+      --danger: #b42318;
+      --shadow: 0 18px 50px rgba(31, 41, 51, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.48)),
+        repeating-linear-gradient(45deg, rgba(15,118,110,0.08) 0 12px, rgba(180,83,9,0.07) 12px 24px),
+        var(--paper);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .app {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0;
+    }
+
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 5vw, 54px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .subhead {
+      max-width: 680px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .badge {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 36px;
+      padding: 0 12px;
+      border: 1px solid rgba(15,118,110,0.28);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.7);
+      color: var(--accent-dark);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(310px, 420px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel,
+    .preview-shell {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.92);
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      padding: 18px;
+    }
+
+    .dropzone {
+      display: grid;
+      place-items: center;
+      min-height: 188px;
+      padding: 22px;
+      border: 2px dashed #9aa7b7;
+      border-radius: 8px;
+      background: #fbfcfd;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+    }
+
+    .dropzone:hover,
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: #eefaf8;
+      transform: translateY(-1px);
+    }
+
+    .dropzone input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+
+    .upload-icon {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 12px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #dff4f1;
+      color: var(--accent-dark);
+    }
+
+    .upload-title {
+      margin: 0;
+      font-weight: 800;
+      font-size: 18px;
+    }
+
+    .upload-copy {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .file-name {
+      min-height: 22px;
+      margin: 12px 0 0;
+      color: var(--accent-dark);
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .controls {
+      display: grid;
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    label {
+      color: #344054;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 118px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    input[type="number"],
+    select {
+      width: 100%;
+      height: 42px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 0 10px;
+      background: white;
+      color: var(--ink);
+    }
+
+    .quick-sizes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .chip {
+      height: 36px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: white;
+      color: #344054;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .chip.active {
+      border-color: var(--accent);
+      background: #e6f6f3;
+      color: var(--accent-dark);
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .button {
+      min-height: 46px;
+      border: 0;
+      border-radius: 8px;
+      padding: 0 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: transform 120ms ease, background 120ms ease, opacity 120ms ease;
+    }
+
+    .button:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    .button:disabled {
+      cursor: not-allowed;
+      opacity: 0.52;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .primary:hover:not(:disabled) {
+      background: var(--accent-dark);
+    }
+
+    .secondary {
+      background: #eef2f6;
+      color: #243447;
+    }
+
+    .status {
+      min-height: 24px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .status.error {
+      color: var(--danger);
+      font-weight: 800;
+    }
+
+    .progress {
+      height: 8px;
+      margin-top: 10px;
+      border-radius: 99px;
+      background: #e5e7eb;
+      overflow: hidden;
+    }
+
+    .progress span {
+      display: block;
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--warm));
+      transition: width 100ms linear;
+    }
+
+    .preview-shell {
+      min-height: 620px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+    }
+
+    .preview-top {
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #ffffff;
+    }
+
+    .preview-title {
+      min-width: 0;
+      font-size: 15px;
+      font-weight: 900;
+      overflow-wrap: anywhere;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .stage {
+      position: relative;
+      min-height: 470px;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background-color: #f8fafc;
+      background-image:
+        linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+        linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+        linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+      background-size: 20px 20px;
+    }
+
+    #lottiePreview {
+      width: min(100%, 620px);
+      aspect-ratio: 1 / 1;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.68);
+      overflow: hidden;
+    }
+
+    .empty {
+      max-width: 340px;
+      text-align: center;
+      color: #697586;
+      line-height: 1.6;
+      font-weight: 700;
+    }
+
+    .preview-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 54px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--line);
+      background: #ffffff;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .hidden-workbench {
+      position: fixed;
+      left: -10000px;
+      top: -10000px;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+    }
+
+    .hidden-workbench canvas {
+      display: block;
+    }
+
+    @media (max-width: 860px) {
+      .app {
+        width: min(100vw - 22px, 680px);
+        padding: 18px 0;
+      }
+
+      header {
+        display: block;
+      }
+
+      .badge {
+        margin-top: 14px;
+      }
+
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .preview-shell {
+        min-height: 500px;
+      }
+
+      .stage {
+        min-height: 360px;
+        padding: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>Lottie 转 PNG 动图</h1>
+        <p class="subhead">把网上下载的 Lottie JSON 转成高清 APNG，保持透明背景，并默认循环播放。</p>
+      </div>
+      <div class="badge">透明背景 · 循环播放</div>
+    </header>
+
+    <main>
+      <section class="panel" aria-label="转换设置">
+        <label class="dropzone" id="dropzone">
+          <input id="fileInput" type="file" accept=".json,application/json">
+          <span>
+            <span class="upload-icon" aria-hidden="true">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                <path d="M12 16V4m0 0 5 5m-5-5L7 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M20 16.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="upload-title">选择或拖入 JSON 文件</span>
+            <span class="upload-copy">支持常见 Lottie / Bodymovin 动画文件</span>
+            <span class="file-name" id="fileName"></span>
+          </span>
+        </label>
+
+        <div class="controls">
+          <div class="field">
+            <label for="sizeInput">导出尺寸</label>
+            <div class="quick-sizes">
+              <button class="chip active" type="button" data-size="512">512</button>
+              <button class="chip" type="button" data-size="1024">1024</button>
+              <button class="chip" type="button" data-size="2048">2048</button>
+            </div>
+            <div class="field-row">
+              <input id="sizeRange" type="range" min="128" max="4096" step="64" value="512">
+              <input id="sizeInput" type="number" min="128" max="4096" step="64" value="512">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="fpsInput">帧率</label>
+            <div class="field-row">
+              <input id="fpsRange" type="range" min="6" max="60" step="1" value="30">
+              <input id="fpsInput" type="number" min="6" max="60" step="1" value="30">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="modeSelect">导出范围</label>
+            <select id="modeSelect">
+              <option value="full">完整动画</option>
+              <option value="short">前 3 秒</option>
+              <option value="loop">自动取一个循环段</option>
+            </select>
+          </div>
+
+          <div class="actions">
+            <button class="button secondary" id="playButton" type="button" disabled>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M8 5v14l11-7L8 5Z" fill="currentColor"/>
+              </svg>
+              预览
+            </button>
+            <button class="button primary" id="exportButton" type="button" disabled>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 3v12m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M5 19h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              导出 PNG
+            </button>
+          </div>
+        </div>
+
+        <div class="status" id="status">等待选择文件。</div>
+        <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+      </section>
+
+      <section class="preview-shell" aria-label="动画预览">
+        <div class="preview-top">
+          <div class="preview-title" id="previewTitle">预览区</div>
+          <div class="meta" id="meta">未载入</div>
+        </div>
+        <div class="stage">
+          <div id="lottiePreview">
+            <div class="empty">动画载入后会在这里循环播放，透明区域用格子背景显示。</div>
+          </div>
+        </div>
+        <div class="preview-bottom">
+          <span id="detailText">导出结果为 `.png` 文件，支持透明背景。</span>
+          <span id="frameText">0 帧</span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="hidden-workbench" aria-hidden="true">
+    <div id="renderHost"></div>
+  </div>
+
+  <script>
+    const fileInput = document.querySelector("#fileInput");
+    const dropzone = document.querySelector("#dropzone");
+    const fileName = document.querySelector("#fileName");
+    const previewHost = document.querySelector("#lottiePreview");
+    const renderHost = document.querySelector("#renderHost");
+    const playButton = document.querySelector("#playButton");
+    const exportButton = document.querySelector("#exportButton");
+    const statusEl = document.querySelector("#status");
+    const progressBar = document.querySelector("#progressBar");
+    const previewTitle = document.querySelector("#previewTitle");
+    const meta = document.querySelector("#meta");
+    const detailText = document.querySelector("#detailText");
+    const frameText = document.querySelector("#frameText");
+    const sizeRange = document.querySelector("#sizeRange");
+    const sizeInput = document.querySelector("#sizeInput");
+    const fpsRange = document.querySelector("#fpsRange");
+    const fpsInput = document.querySelector("#fpsInput");
+    const modeSelect = document.querySelector("#modeSelect");
+    const sizeChips = [...document.querySelectorAll(".chip")];
+
+    let animationData = null;
+    let previewAnim = null;
+    let currentFileBase = "lottie";
+    let isExporting = false;
+
+    function setStatus(message, isError = false) {
+      statusEl.textContent = message;
+      statusEl.classList.toggle("error", isError);
+    }
+
+    function setProgress(value) {
+      progressBar.style.width = `${Math.max(0, Math.min(100, value))}%`;
+    }
+
+    function cleanName(name) {
+      return name.replace(/\.[^.]+$/, "").replace(/[^\w\u4e00-\u9fa5-]+/g, "-") || "lottie";
+    }
+
+    function clampNumber(value, min, max) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return min;
+      return Math.max(min, Math.min(max, Math.round(number)));
+    }
+
+    function syncNumeric(range, input, min, max, value) {
+      const next = clampNumber(value, min, max);
+      range.value = next;
+      input.value = next;
+      if (range === sizeRange) updateSizeChips(next);
+      updateFrameEstimate();
+    }
+
+    function updateSizeChips(size) {
+      sizeChips.forEach((chip) => chip.classList.toggle("active", Number(chip.dataset.size) === Number(size)));
+    }
+
+    function getSourceFrameRate() {
+      return Number(animationData?.fr) || 30;
+    }
+
+    function getFrameBounds() {
+      const ip = Math.floor(Number(animationData?.ip) || 0);
+      const op = Math.ceil(Number(animationData?.op) || 0);
+      const sourceFps = getSourceFrameRate();
+      let start = ip;
+      let end = Math.max(ip + 1, op);
+
+      if (modeSelect.value === "short") {
+        end = Math.min(end, start + Math.round(sourceFps * 3));
+      }
+
+      if (modeSelect.value === "loop") {
+        end = Math.min(end, start + Math.round(sourceFps * 2));
+      }
+
+      return { start, end, sourceFps };
+    }
+
+    function getExportFrameCount() {
+      if (!animationData) return 0;
+      const { start, end, sourceFps } = getFrameBounds();
+      const targetFps = Number(fpsInput.value) || 30;
+      const durationSeconds = Math.max(1 / sourceFps, (end - start) / sourceFps);
+      return Math.max(1, Math.ceil(durationSeconds * targetFps));
+    }
+
+    function updateFrameEstimate() {
+      if (!animationData) {
+        frameText.textContent = "0 帧";
+        return;
+      }
+      const frames = getExportFrameCount();
+      const size = Number(sizeInput.value);
+      frameText.textContent = `${frames} 帧 · ${size} x ${size}`;
+    }
+
+    function destroyPreview() {
+      if (previewAnim) {
+        previewAnim.destroy();
+        previewAnim = null;
+      }
+      previewHost.innerHTML = "";
+    }
+
+    function loadPreview() {
+      destroyPreview();
+      previewAnim = lottie.loadAnimation({
+        container: previewHost,
+        renderer: "svg",
+        loop: true,
+        autoplay: true,
+        animationData
+      });
+    }
+
+    async function loadFile(file) {
+      try {
+        setProgress(0);
+        setStatus("正在读取 JSON...");
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        if (!data || typeof data !== "object" || !data.layers) {
+          throw new Error("这个文件不像标准 Lottie JSON。");
+        }
+
+        animationData = data;
+        currentFileBase = cleanName(file.name);
+        fileName.textContent = file.name;
+        previewTitle.textContent = file.name;
+
+        const width = Number(data.w) || 0;
+        const height = Number(data.h) || 0;
+        const fps = Number(data.fr) || 30;
+        const totalFrames = Math.max(0, Math.ceil((Number(data.op) || 0) - (Number(data.ip) || 0)));
+        const seconds = totalFrames ? (totalFrames / fps).toFixed(2) : "0";
+
+        meta.textContent = `${width} x ${height} · ${fps}fps`;
+        detailText.textContent = `原始时长约 ${seconds} 秒，导出时可放大到高清尺寸。`;
+        playButton.disabled = false;
+        exportButton.disabled = false;
+        setStatus("已载入，可以预览或导出 PNG 动图。");
+        setProgress(0);
+        loadPreview();
+        updateFrameEstimate();
+      } catch (error) {
+        animationData = null;
+        destroyPreview();
+        previewHost.innerHTML = `<div class="empty">没有可预览的动画。</div>`;
+        playButton.disabled = true;
+        exportButton.disabled = true;
+        meta.textContent = "未载入";
+        detailText.textContent = "导出结果为 `.png` 文件，支持透明背景。";
+        frameText.textContent = "0 帧";
+        setStatus(error.message || "读取失败，请换一个 JSON 文件。", true);
+      }
+    }
+
+    function waitForAnimation(anim, eventName) {
+      return new Promise((resolve) => {
+        const done = () => {
+          anim.removeEventListener(eventName, done);
+          resolve();
+        };
+        anim.addEventListener(eventName, done);
+      });
+    }
+
+    function nextPaint() {
+      return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }
+
+    async function renderFrame(anim, targetCanvas, frame) {
+      anim.goToAndStop(frame, true);
+      await nextPaint();
+      const sourceCanvas = renderHost.querySelector("canvas");
+      if (!sourceCanvas) {
+        throw new Error("渲染画布没有创建成功。");
+      }
+      const ctx = targetCanvas.getContext("2d", { willReadFrequently: true });
+      ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+      ctx.drawImage(sourceCanvas, 0, 0, targetCanvas.width, targetCanvas.height);
+      return ctx.getImageData(0, 0, targetCanvas.width, targetCanvas.height).data.buffer;
+    }
+
+    async function exportApng() {
+      if (!animationData || isExporting) return;
+
+      isExporting = true;
+      exportButton.disabled = true;
+      playButton.disabled = true;
+      setProgress(0);
+
+      const size = clampNumber(sizeInput.value, 128, 4096);
+      const fps = clampNumber(fpsInput.value, 6, 60);
+      const { start, end, sourceFps } = getFrameBounds();
+      const frameCount = getExportFrameCount();
+      const frameDurationMs = Math.round(1000 / fps);
+      const targetCanvas = document.createElement("canvas");
+      targetCanvas.width = size;
+      targetCanvas.height = size;
+      renderHost.innerHTML = "";
+      renderHost.style.width = `${size}px`;
+      renderHost.style.height = `${size}px`;
+
+      let renderAnim = null;
+
+      try {
+        setStatus("正在准备高清渲染...");
+        renderAnim = lottie.loadAnimation({
+          container: renderHost,
+          renderer: "canvas",
+          loop: false,
+          autoplay: false,
+          animationData,
+          rendererSettings: {
+            clearCanvas: true,
+            preserveAspectRatio: "xMidYMid meet"
+          }
+        });
+        await waitForAnimation(renderAnim, "DOMLoaded");
+        await nextPaint();
+
+        const frames = [];
+        const delays = [];
+
+        for (let index = 0; index < frameCount; index += 1) {
+          const progress = index / frameCount;
+          const frame = start + progress * (end - start);
+          frames.push(await renderFrame(renderAnim, targetCanvas, frame));
+          delays.push(frameDurationMs);
+          if (index % 2 === 0 || index === frameCount - 1) {
+            setProgress(((index + 1) / frameCount) * 86);
+            setStatus(`正在渲染第 ${index + 1} / ${frameCount} 帧...`);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+          }
+        }
+
+        setStatus("正在打包 PNG 动图...");
+        setProgress(92);
+        const arrayBuffer = UPNG.encode(frames, size, size, 0, delays);
+        const blob = new Blob([arrayBuffer], { type: "image/png" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${currentFileBase}-${size}px-${fps}fps.png`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+        setProgress(100);
+        setStatus("导出完成。得到的是可循环播放的 PNG 动图。");
+      } catch (error) {
+        const message = error?.message || "导出失败。";
+        const hint = message.includes("tainted")
+          ? "导出失败：这个 Lottie 可能引用了跨域图片，建议使用内嵌图片资源的 JSON。"
+          : message;
+        setStatus(hint, true);
+      } finally {
+        if (renderAnim) renderAnim.destroy();
+        renderHost.innerHTML = "";
+        isExporting = false;
+        exportButton.disabled = !animationData;
+        playButton.disabled = !animationData;
+      }
+    }
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      if (file) loadFile(file);
+    });
+
+    dropzone.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      dropzone.classList.add("dragover");
+    });
+
+    dropzone.addEventListener("dragleave", () => {
+      dropzone.classList.remove("dragover");
+    });
+
+    dropzone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      dropzone.classList.remove("dragover");
+      const file = [...event.dataTransfer.files].find((item) => item.name.toLowerCase().endsWith(".json"));
+      if (file) loadFile(file);
+    });
+
+    sizeRange.addEventListener("input", () => syncNumeric(sizeRange, sizeInput, 128, 4096, sizeRange.value));
+    sizeInput.addEventListener("change", () => syncNumeric(sizeRange, sizeInput, 128, 4096, sizeInput.value));
+    fpsRange.addEventListener("input", () => syncNumeric(fpsRange, fpsInput, 6, 60, fpsRange.value));
+    fpsInput.addEventListener("change", () => syncNumeric(fpsRange, fpsInput, 6, 60, fpsInput.value));
+    modeSelect.addEventListener("change", updateFrameEstimate);
+
+    sizeChips.forEach((chip) => {
+      chip.addEventListener("click", () => syncNumeric(sizeRange, sizeInput, 128, 4096, chip.dataset.size));
+    });
+
+    playButton.addEventListener("click", () => {
+      if (!previewAnim) return;
+      if (previewAnim.isPaused) {
+        previewAnim.play();
+      } else {
+        previewAnim.pause();
+      }
+    });
+
+    exportButton.addEventListener("click", exportApng);
+  </script>
+</body>
+</html>

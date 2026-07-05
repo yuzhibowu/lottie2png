@@ -1,0 +1,13 @@
+{
+  "name": "lottie-to-apng-tool",
+  "version": "1.0.0",
+  "private": true,
+  "description": "把 Lottie JSON 转成可循环播放的高清 PNG 动图。",
+  "scripts": {
+    "start": "python3 -m http.server 5173"
+  },
+  "dependencies": {
+    "lottie-web": "^5.13.0",
+    "upng-js": "^2.1.0"
+  }
+}
