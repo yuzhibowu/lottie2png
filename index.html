@@ -453,8 +453,8 @@
           <div class="field">
             <label for="fpsInput">帧率</label>
             <div class="field-row">
-              <input id="fpsRange" type="range" min="6" max="60" step="1" value="30">
-              <input id="fpsInput" type="number" min="6" max="60" step="1" value="30">
+              <input id="fpsRange" type="range" min="1" max="120" step="0.01" value="30">
+              <input id="fpsInput" type="number" min="1" max="120" step="0.01" value="30">
             </div>
           </div>
 
@@ -567,6 +567,15 @@
       updateFrameEstimate();
     }
 
+    function syncFrameRate(value) {
+      const number = Number(value);
+      const next = Number.isFinite(number) ? Math.max(1, Math.min(120, number)) : 30;
+      const displayValue = Number(next.toFixed(2));
+      fpsRange.value = displayValue;
+      fpsInput.value = displayValue;
+      updateFrameEstimate();
+    }
+
     function updateSizeChips(size) {
       sizeChips.forEach((chip) => chip.classList.toggle("active", Number(chip.dataset.size) === Number(size)));
     }
@@ -608,7 +617,8 @@
       }
       const frames = getExportFrameCount();
       const size = Number(sizeInput.value);
-      frameText.textContent = `${frames} 帧 · ${size} x ${size}`;
+      const fps = Number(fpsInput.value) || 30;
+      frameText.textContent = `${fps} fps · ${frames} 帧 · ${size} x ${size}`;
     }
 
     function destroyPreview() {
@@ -657,6 +667,7 @@
 
         meta.textContent = `${width} x ${height} · ${fps}fps`;
         detailText.textContent = `原始时长约 ${seconds} 秒，导出时可放大到高清尺寸。`;
+        syncFrameRate(fps);
         playButton.disabled = false;
         exportButton.disabled = false;
         setStatus("已载入，可以预览或导出 PNG 动图。");
@@ -712,7 +723,7 @@
       setProgress(0);
 
       const size = clampNumber(sizeInput.value, 128, 4096);
-      const fps = clampNumber(fpsInput.value, 6, 60);
+      const fps = Math.max(1, Math.min(120, Number(fpsInput.value) || 30));
       const { start, end, sourceFps } = getFrameBounds();
       const frameCount = getExportFrameCount();
       const frameDurationMs = Math.round(1000 / fps);
@@ -808,8 +819,8 @@
 
     sizeRange.addEventListener("input", () => syncNumeric(sizeRange, sizeInput, 128, 4096, sizeRange.value));
     sizeInput.addEventListener("change", () => syncNumeric(sizeRange, sizeInput, 128, 4096, sizeInput.value));
-    fpsRange.addEventListener("input", () => syncNumeric(fpsRange, fpsInput, 6, 60, fpsRange.value));
-    fpsInput.addEventListener("change", () => syncNumeric(fpsRange, fpsInput, 6, 60, fpsInput.value));
+    fpsRange.addEventListener("input", () => syncFrameRate(fpsRange.value));
+    fpsInput.addEventListener("change", () => syncFrameRate(fpsInput.value));
     modeSelect.addEventListener("change", updateFrameEstimate);
 
     sizeChips.forEach((chip) => {
