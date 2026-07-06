@@ -55,6 +55,47 @@
       margin-bottom: 22px;
     }
 
+    .header-right {
+      justify-self: end;
+      display: grid;
+      justify-items: end;
+      gap: 10px;
+    }
+
+    .social-links {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 10px;
+    }
+
+    .social-link {
+      width: 10px;
+      height: 10px;
+      display: grid;
+      place-items: center;
+      color: #000000;
+      text-decoration: none;
+    }
+
+    .social-link svg {
+      width: 10px;
+      height: 10px;
+      display: block;
+    }
+
+    .xhs-mark {
+      width: 10px;
+      height: 10px;
+      display: grid;
+      place-items: center;
+      background: #ff2442;
+      color: #ffffff;
+      font-size: 7px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
     .headline {
       min-width: 0;
     }
@@ -111,6 +152,8 @@
     .panel {
       padding: 22px;
       height: 100%;
+      display: flex;
+      flex-direction: column;
     }
 
     .dropzone {
@@ -356,6 +399,85 @@
       transition: width 100ms linear;
     }
 
+    .language-control {
+      position: relative;
+      margin-top: auto;
+      padding-top: 18px;
+      align-self: flex-start;
+    }
+
+    .language-trigger {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #111111;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .language-menu-button {
+      width: 10px;
+      height: 10px;
+      min-width: 10px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: #000000;
+      cursor: pointer;
+    }
+
+    .language-menu-button[aria-expanded="true"] {
+      width: 18px;
+      height: 18px;
+      min-width: 18px;
+      border-radius: 0;
+    }
+
+    .language-menu-button[aria-expanded="true"]::after {
+      content: "";
+      display: block;
+      width: 5px;
+      height: 5px;
+      margin: 4px auto 0;
+      border-right: 1px solid #ffffff;
+      border-bottom: 1px solid #ffffff;
+      transform: rotate(45deg);
+    }
+
+    .language-menu {
+      position: absolute;
+      left: 0;
+      bottom: 30px;
+      z-index: 10;
+      width: 220px;
+      padding: 10px 0;
+      border: 1px solid #bdbdbd;
+      background: #000000;
+      box-shadow: var(--shadow);
+    }
+
+    .language-menu[hidden] {
+      display: none;
+    }
+
+    .language-menu button {
+      width: 100%;
+      min-height: 48px;
+      padding: 0 30px;
+      border: 0;
+      background: #000000;
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 800;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .language-menu button:hover,
+    .language-menu button[aria-current="true"] {
+      background: #222222;
+    }
+
     .preview-shell {
       min-height: 744px;
       display: grid;
@@ -499,10 +621,20 @@
   <div class="app">
     <header>
       <div class="headline">
-        <h1>Lottie 动画格式转换</h1>
-        <p class="subhead">把 Lottie JSON 转成 PNG 动图、ProRes 4444 MOV、GIF 或 PNG 序列</p>
+        <h1 data-i18n="title">Lottie 动画格式转换</h1>
+        <p class="subhead" data-i18n="subtitle">把 Lottie JSON 转成 PNG 动图、ProRes 4444 MOV、GIF 或 PNG 序列</p>
       </div>
-      <div class="brand-name">饼饼SHOW</div>
+      <div class="header-right">
+        <nav class="social-links" aria-label="Social links">
+          <a class="social-link" href="https://xhslink.com/m/6haeQAMgARs" target="_blank" rel="noopener noreferrer" aria-label="小红书" title="小红书">
+            <span class="xhs-mark" aria-hidden="true">小</span>
+          </a>
+          <a class="social-link" href="https://github.com/yuzhibowu/lottie2png" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2.23c-3.22.7-3.9-1.37-3.9-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.16.08 1.78 1.2 1.78 1.2 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.74-1.55-2.57-.29-5.27-1.29-5.27-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.16 1.18a10.94 10.94 0 0 1 5.76 0c2.19-1.49 3.16-1.18 3.16-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.71 5.39-5.29 5.68.42.36.79 1.07.79 2.16v3.21c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .7Z"/></svg>
+          </a>
+        </nav>
+        <div class="brand-name">饼饼SHOW</div>
+      </div>
     </header>
 
     <main>
@@ -516,24 +648,24 @@
                 <path d="M20 16.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               </svg>
             </span>
-            <span class="upload-title">选择或拖入 JSON 文件</span>
+            <span class="upload-title" data-i18n="upload">选择或拖入 JSON 文件</span>
             <span class="file-name" id="fileName"></span>
           </span>
         </label>
 
         <div class="controls">
           <div class="field">
-            <label>导出格式</label>
+            <label data-i18n="exportFormat">导出格式</label>
             <div class="format-options" role="radiogroup" aria-label="导出格式">
-              <label class="format-option"><input type="radio" name="exportFormat" value="apng" checked><span>PNG 动图</span></label>
+              <label class="format-option"><input type="radio" name="exportFormat" value="apng" checked><span data-i18n="pngAnimated">PNG 动图</span></label>
               <label class="format-option"><input type="radio" name="exportFormat" value="mov"><span>ProRes 4444 MOV</span></label>
-              <label class="format-option"><input type="radio" name="exportFormat" value="gif"><span>GIF 动图</span></label>
-              <label class="format-option"><input type="radio" name="exportFormat" value="sequence"><span>PNG 序列 ZIP</span></label>
+              <label class="format-option"><input type="radio" name="exportFormat" value="gif"><span data-i18n="gifAnimated">GIF 动图</span></label>
+              <label class="format-option"><input type="radio" name="exportFormat" value="sequence"><span data-i18n="pngSequence">PNG 序列 ZIP</span></label>
             </div>
           </div>
 
           <div class="field">
-            <label for="sizeInput">导出尺寸</label>
+            <label for="sizeInput" data-i18n="exportSize">导出尺寸</label>
             <div class="quick-sizes">
               <button class="chip active" type="button" data-size="512">512</button>
               <button class="chip" type="button" data-size="1024">1024</button>
@@ -547,7 +679,7 @@
           </div>
 
           <div class="field">
-            <label for="fpsInput">帧率</label>
+            <label for="fpsInput" data-i18n="fps">帧率</label>
             <div class="field-row">
               <input id="fpsRange" type="range" min="1" max="120" step="0.01" value="30">
               <input id="fpsInput" type="number" min="1" max="120" step="0.01" value="30">
@@ -555,11 +687,11 @@
           </div>
 
           <div class="field">
-            <label for="modeSelect">导出范围</label>
+            <label for="modeSelect" data-i18n="exportRange">导出范围</label>
             <select id="modeSelect">
-              <option value="full">完整动画</option>
-              <option value="short">前 3 秒</option>
-              <option value="loop" selected>自动取一个循环段</option>
+              <option value="full" data-i18n="full">完整动画</option>
+              <option value="short" data-i18n="first3">前 3 秒</option>
+              <option value="loop" selected data-i18n="loop">自动取一个循环段</option>
             </select>
           </div>
 
@@ -568,7 +700,7 @@
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M8 5v14l11-7L8 5Z" fill="currentColor"/>
               </svg>
-              预览
+              <span data-i18n="preview">预览</span>
             </button>
             <button class="button primary" id="exportButton" type="button" disabled>
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -582,21 +714,32 @@
 
         <div class="status" id="status"></div>
         <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+        <div class="language-control">
+          <div class="language-menu" id="languageMenu" hidden>
+            <button type="button" data-lang="zh" aria-current="true">中文</button>
+            <button type="button" data-lang="en">English</button>
+            <button type="button" data-lang="fr">Français</button>
+          </div>
+          <div class="language-trigger">
+            <button class="language-menu-button" id="languageMenuButton" type="button" aria-label="Language" aria-expanded="false"></button>
+            <span>language</span>
+          </div>
+        </div>
       </section>
 
       <section class="preview-shell" aria-label="动画预览">
         <div class="preview-top">
-          <div class="preview-title" id="previewTitle">预览区</div>
-          <div class="meta" id="meta">未载入</div>
+          <div class="preview-title" id="previewTitle" data-i18n="previewArea">预览区</div>
+          <div class="meta" id="meta" data-i18n="notLoaded">未载入</div>
         </div>
         <div class="stage">
           <div id="lottiePreview">
-            <div class="empty">动画载入后会在这里循环播放，透明区域用格子背景显示。</div>
+            <div class="empty" data-i18n="emptyPreview">动画载入后会在这里循环播放，透明区域用格子背景显示</div>
           </div>
         </div>
         <div class="preview-bottom">
-          <span id="detailText">支持透明背景与循环动画导出。</span>
-          <span id="frameText">0 帧</span>
+          <span id="detailText" data-i18n="detailDefault">支持透明背景与循环动画导出</span>
+          <span id="frameText" data-i18n="framesZero">0 帧</span>
         </div>
       </section>
     </main>
@@ -615,6 +758,60 @@
 
     const ffmpegCoreBase = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm";
     let ffmpegCoreUrls = null;
+
+    const translations = {
+      zh: {
+        title: "Lottie 动画格式转换", subtitle: "把 Lottie JSON 转成 PNG 动图、ProRes 4444 MOV、GIF 或 PNG 序列",
+        upload: "选择或拖入 JSON 文件", exportFormat: "导出格式", pngAnimated: "PNG 动图", gifAnimated: "GIF 动图",
+        pngSequence: "PNG 序列 ZIP", exportSize: "导出尺寸", fps: "帧率", exportRange: "导出范围",
+        full: "完整动画", first3: "前 3 秒", loop: "自动取一个循环段", preview: "预览",
+        exportApng: "导出 PNG 动图", exportMov: "导出 MOV", exportGif: "导出 GIF", exportSequence: "导出 PNG 序列",
+        previewArea: "预览区", notLoaded: "未载入", emptyPreview: "动画载入后会在这里循环播放，透明区域用格子背景显示",
+        detailDefault: "支持透明背景与循环动画导出", framesZero: "0 帧", reading: "正在读取 JSON...",
+        invalid: "这个文件不像标准 Lottie JSON", loaded: "已载入，可以选择格式并导出",
+        detailLoaded: "原始时长约 {seconds} 秒，导出时可放大到高清尺寸", noPreview: "没有可预览的动画",
+        readFailed: "读取失败，请换一个 JSON 文件", renderCanvasFailed: "渲染画布没有创建成功", pngFrameFailed: "PNG 帧生成失败",
+        frameSummary: "{fps} fps · {frames} 帧 · {size} x {size}", zipProgress: "正在打包 PNG 序列 {percent}%...",
+        loadingEncoder: "首次使用，正在加载视频编码器（约 31 MB）...", preparingEncode: "正在准备编码第 {current} / {total} 帧...",
+        encodingMov: "正在编码 ProRes 4444 MOV...", encodingGif: "正在编码 GIF 动图...", encoderExit: "编码器退出，错误码 {code}",
+        preparingRender: "正在准备高清渲染...", rendering: "正在渲染第 {current} / {total} 帧...", packingApng: "正在打包 PNG 动图...",
+        complete: "导出完成：{filename}", exportFailed: "导出失败", tainted: "导出失败：这个 Lottie 可能引用了跨域图片，建议使用内嵌图片资源的 JSON"
+      },
+      en: {
+        title: "Lottie Animation Converter", subtitle: "Convert Lottie JSON to animated PNG, ProRes 4444 MOV, GIF, or PNG sequences",
+        upload: "Choose or drop a JSON file", exportFormat: "Export format", pngAnimated: "Animated PNG", gifAnimated: "Animated GIF",
+        pngSequence: "PNG sequence ZIP", exportSize: "Export size", fps: "Frame rate", exportRange: "Export range",
+        full: "Full animation", first3: "First 3 seconds", loop: "Auto loop segment", preview: "Preview",
+        exportApng: "Export animated PNG", exportMov: "Export MOV", exportGif: "Export GIF", exportSequence: "Export PNG sequence",
+        previewArea: "Preview", notLoaded: "Not loaded", emptyPreview: "The animation will loop here; transparent areas use a checkerboard",
+        detailDefault: "Exports transparency and looping animation", framesZero: "0 frames", reading: "Reading JSON...",
+        invalid: "This does not look like a standard Lottie JSON file", loaded: "Loaded. Choose a format and export",
+        detailLoaded: "Source duration: about {seconds}s; export at high resolution", noPreview: "No animation to preview",
+        readFailed: "Could not read the file. Try another JSON file", renderCanvasFailed: "The render canvas could not be created", pngFrameFailed: "Could not create the PNG frame",
+        frameSummary: "{fps} fps · {frames} frames · {size} x {size}", zipProgress: "Packing PNG sequence {percent}%...",
+        loadingEncoder: "Loading the video encoder for first use (about 31 MB)...", preparingEncode: "Preparing frame {current} / {total}...",
+        encodingMov: "Encoding ProRes 4444 MOV...", encodingGif: "Encoding animated GIF...", encoderExit: "Encoder exited with code {code}",
+        preparingRender: "Preparing high-resolution rendering...", rendering: "Rendering frame {current} / {total}...", packingApng: "Packing animated PNG...",
+        complete: "Export complete: {filename}", exportFailed: "Export failed", tainted: "Export failed: this Lottie may use cross-origin images. Use JSON with embedded image assets"
+      },
+      fr: {
+        title: "Convertisseur d'animations Lottie", subtitle: "Convertissez un JSON Lottie en PNG animé, MOV ProRes 4444, GIF ou séquence PNG",
+        upload: "Choisir ou déposer un fichier JSON", exportFormat: "Format d'export", pngAnimated: "PNG animé", gifAnimated: "GIF animé",
+        pngSequence: "Séquence PNG ZIP", exportSize: "Taille d'export", fps: "Fréquence", exportRange: "Plage d'export",
+        full: "Animation complète", first3: "3 premières secondes", loop: "Segment en boucle auto", preview: "Aperçu",
+        exportApng: "Exporter le PNG animé", exportMov: "Exporter le MOV", exportGif: "Exporter le GIF", exportSequence: "Exporter la séquence PNG",
+        previewArea: "Aperçu", notLoaded: "Non chargé", emptyPreview: "L'animation tournera ici ; les zones transparentes utilisent un damier",
+        detailDefault: "Exporte la transparence et l'animation en boucle", framesZero: "0 image", reading: "Lecture du JSON...",
+        invalid: "Ce fichier ne semble pas être un JSON Lottie standard", loaded: "Fichier chargé. Choisissez un format puis exportez",
+        detailLoaded: "Durée source : environ {seconds} s ; export possible en haute résolution", noPreview: "Aucune animation à prévisualiser",
+        readFailed: "Lecture impossible. Essayez un autre fichier JSON", renderCanvasFailed: "Impossible de créer la zone de rendu", pngFrameFailed: "Impossible de créer l'image PNG",
+        frameSummary: "{fps} fps · {frames} images · {size} x {size}", zipProgress: "Création de la séquence PNG {percent}%...",
+        loadingEncoder: "Premier chargement de l'encodeur vidéo (environ 31 Mo)...", preparingEncode: "Préparation de l'image {current} / {total}...",
+        encodingMov: "Encodage du MOV ProRes 4444...", encodingGif: "Encodage du GIF animé...", encoderExit: "L'encodeur s'est arrêté avec le code {code}",
+        preparingRender: "Préparation du rendu haute résolution...", rendering: "Rendu de l'image {current} / {total}...", packingApng: "Création du PNG animé...",
+        complete: "Export terminé : {filename}", exportFailed: "Échec de l'export", tainted: "Échec de l'export : ce Lottie utilise peut-être des images externes. Utilisez des images intégrées au JSON"
+      }
+    };
 
     const fileInput = document.querySelector("#fileInput");
     const dropzone = document.querySelector("#dropzone");
@@ -637,15 +834,65 @@
     const modeSelect = document.querySelector("#modeSelect");
     const formatInputs = [...document.querySelectorAll('input[name="exportFormat"]')];
     const sizeChips = [...document.querySelectorAll(".chip")];
+    const languageMenu = document.querySelector("#languageMenu");
+    const languageMenuButton = document.querySelector("#languageMenuButton");
+    const languageButtons = [...languageMenu.querySelectorAll("[data-lang]")];
 
     let animationData = null;
     let previewAnim = null;
     let currentFileBase = "lottie";
     let isExporting = false;
+    let currentLanguage = "zh";
+    let sourceMeta = null;
+    let lastStatus = null;
+
+    function t(key, params = {}) {
+      const template = translations[currentLanguage][key] || translations.zh[key] || key;
+      return Object.entries(params).reduce(
+        (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+        template
+      );
+    }
 
     function setStatus(message, isError = false) {
+      lastStatus = null;
       statusEl.textContent = message;
       statusEl.classList.toggle("error", isError);
+    }
+
+    function setStatusKey(key, params = {}, isError = false) {
+      lastStatus = { key, params, isError };
+      statusEl.textContent = t(key, params);
+      statusEl.classList.toggle("error", isError);
+    }
+
+    function applyLanguage(language) {
+      currentLanguage = translations[language] ? language : "zh";
+      document.documentElement.lang = currentLanguage === "zh" ? "zh-CN" : currentLanguage;
+      document.title = t("title");
+      document.querySelectorAll("[data-i18n]").forEach((element) => {
+        element.textContent = t(element.dataset.i18n);
+      });
+      languageButtons.forEach((button) => {
+        button.setAttribute("aria-current", String(button.dataset.lang === currentLanguage));
+      });
+      updateFormatUi();
+      updateFrameEstimate();
+
+      if (animationData && sourceMeta) {
+        meta.textContent = `${sourceMeta.width} x ${sourceMeta.height} · ${sourceMeta.fps}fps`;
+        detailText.textContent = t("detailLoaded", { seconds: sourceMeta.seconds });
+      } else {
+        previewTitle.textContent = t("previewArea");
+        meta.textContent = t("notLoaded");
+        detailText.textContent = t("detailDefault");
+        const empty = previewHost.querySelector(".empty");
+        if (empty) empty.textContent = t("emptyPreview");
+      }
+
+      if (lastStatus) {
+        statusEl.textContent = t(lastStatus.key, lastStatus.params);
+      }
     }
 
     function setProgress(value) {
@@ -715,13 +962,13 @@
 
     function updateFrameEstimate() {
       if (!animationData) {
-        frameText.textContent = "0 帧";
+        frameText.textContent = t("framesZero");
         return;
       }
       const frames = getExportFrameCount();
       const size = Number(sizeInput.value);
       const fps = Number(fpsInput.value) || 30;
-      frameText.textContent = `${fps} fps · ${frames} 帧 · ${size} x ${size}`;
+      frameText.textContent = t("frameSummary", { fps, frames, size });
     }
 
     function destroyPreview() {
@@ -746,12 +993,12 @@
     async function loadFile(file) {
       try {
         setProgress(0);
-        setStatus("正在读取 JSON...");
+        setStatusKey("reading");
         const text = await file.text();
         const data = JSON.parse(text);
 
         if (!data || typeof data !== "object" || !data.layers) {
-          throw new Error("这个文件不像标准 Lottie JSON。");
+          throw new Error(t("invalid"));
         }
 
         animationData = data;
@@ -765,25 +1012,28 @@
         const totalFrames = Math.max(0, Math.ceil((Number(data.op) || 0) - (Number(data.ip) || 0)));
         const seconds = totalFrames ? (totalFrames / fps).toFixed(2) : "0";
 
+        sourceMeta = { width, height, fps, seconds };
+
         meta.textContent = `${width} x ${height} · ${fps}fps`;
-        detailText.textContent = `原始时长约 ${seconds} 秒，导出时可放大到高清尺寸。`;
+        detailText.textContent = t("detailLoaded", { seconds });
         syncFrameRate(fps);
         playButton.disabled = false;
         exportButton.disabled = false;
-        setStatus("已载入，可以选择格式并导出。");
+        setStatusKey("loaded");
         setProgress(0);
         loadPreview();
         updateFrameEstimate();
       } catch (error) {
         animationData = null;
+        sourceMeta = null;
         destroyPreview();
-        previewHost.innerHTML = `<div class="empty">没有可预览的动画。</div>`;
+        previewHost.innerHTML = `<div class="empty">${t("noPreview")}</div>`;
         playButton.disabled = true;
         exportButton.disabled = true;
-        meta.textContent = "未载入";
-        detailText.textContent = "支持透明背景与循环动画导出。";
-        frameText.textContent = "0 帧";
-        setStatus(error.message || "读取失败，请换一个 JSON 文件。", true);
+        meta.textContent = t("notLoaded");
+        detailText.textContent = t("detailDefault");
+        frameText.textContent = t("framesZero");
+        setStatusKey(error.message === t("invalid") ? "invalid" : "readFailed", {}, true);
       }
     }
 
@@ -806,7 +1056,7 @@
       await nextPaint();
       const sourceCanvas = renderHost.querySelector("canvas");
       if (!sourceCanvas) {
-        throw new Error("渲染画布没有创建成功。");
+        throw new Error(t("renderCanvasFailed"));
       }
       const ctx = targetCanvas.getContext("2d", { willReadFrequently: true });
       ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
@@ -817,7 +1067,7 @@
       return new Promise((resolve, reject) => {
         targetCanvas.toBlob((blob) => {
           if (blob) resolve(blob);
-          else reject(new Error("PNG 帧生成失败。"));
+          else reject(new Error(t("pngFrameFailed")));
         }, "image/png");
       });
     }
@@ -828,10 +1078,10 @@
 
     function updateFormatUi() {
       const labels = {
-        apng: "导出 PNG 动图",
-        mov: "导出 MOV",
-        gif: "导出 GIF",
-        sequence: "导出 PNG 序列"
+        apng: t("exportApng"),
+        mov: t("exportMov"),
+        gif: t("exportGif"),
+        sequence: t("exportSequence")
       };
       exportButtonText.textContent = labels[selectedFormat()];
     }
@@ -856,13 +1106,13 @@
         { type: "blob", compression: "DEFLATE" },
         ({ percent }) => {
           setProgress(72 + (percent / 100) * 27);
-          setStatus(`正在打包 PNG 序列 ${Math.round(percent)}%...`);
+          setStatusKey("zipProgress", { percent: Math.round(percent) });
         }
       );
     }
 
     async function loadBrowserFfmpeg() {
-      setStatus("首次使用，正在加载视频编码器（约 31 MB）...");
+      setStatusKey("loadingEncoder");
       if (!ffmpegCoreUrls) {
         ffmpegCoreUrls = Promise.all([
           toBlobURL(`${ffmpegCoreBase}/ffmpeg-core.js`, "text/javascript"),
@@ -906,13 +1156,13 @@
         for (let index = 0; index < frames.length; index += 1) {
           await ffmpeg.writeFile(frameNames[index], await fetchFile(frames[index]));
           setProgress(72 + ((index + 1) / frames.length) * 10);
-          setStatus(`正在准备编码第 ${index + 1} / ${frames.length} 帧...`);
+          setStatusKey("preparingEncode", { current: index + 1, total: frames.length });
         }
 
-        setStatus(format === "mov" ? "正在编码 ProRes 4444 MOV..." : "正在编码 GIF 动图...");
+        setStatusKey(format === "mov" ? "encodingMov" : "encodingGif");
         const exitCode = await ffmpeg.exec(args);
         if (exitCode !== 0) {
-          throw new Error(getLatestLog() || `编码器退出，错误码 ${exitCode}`);
+          throw new Error(getLatestLog() || t("encoderExit", { code: exitCode }));
         }
         const output = await ffmpeg.readFile(outputName);
         return new Blob([output.buffer], {
@@ -948,7 +1198,7 @@
       let renderAnim = null;
 
       try {
-        setStatus("正在准备高清渲染...");
+        setStatusKey("preparingRender");
         renderAnim = lottie.loadAnimation({
           container: renderHost,
           renderer: "canvas",
@@ -972,7 +1222,7 @@
           frames.push(await renderFrame(renderAnim, targetCanvas, frame, asPixels));
           if (index % 2 === 0 || index === frameCount - 1) {
             setProgress(((index + 1) / frameCount) * 70);
-            setStatus(`正在渲染第 ${index + 1} / ${frameCount} 帧...`);
+            setStatusKey("rendering", { current: index + 1, total: frameCount });
             await new Promise((resolve) => setTimeout(resolve, 0));
           }
         }
@@ -980,7 +1230,7 @@
         let blob;
         let filename;
         if (format === "apng") {
-          setStatus("正在打包 PNG 动图...");
+          setStatusKey("packingApng");
           setProgress(88);
           const delays = Array(frameCount).fill(frameDurationMs);
           const arrayBuffer = UPNG.encode(frames, size, size, 0, delays);
@@ -998,11 +1248,11 @@
 
         downloadBlob(blob, filename);
         setProgress(100);
-        setStatus(`导出完成：${filename}`);
+        setStatusKey("complete", { filename });
       } catch (error) {
-        const message = error?.message || "导出失败。";
+        const message = error?.message || t("exportFailed");
         const hint = message.includes("tainted")
-          ? "导出失败：这个 Lottie 可能引用了跨域图片，建议使用内嵌图片资源的 JSON。"
+          ? t("tainted")
           : message;
         setStatus(hint, true);
       } finally {
@@ -1055,7 +1305,28 @@
     });
 
     formatInputs.forEach((input) => input.addEventListener("change", updateFormatUi));
-    updateFormatUi();
+    languageMenuButton.addEventListener("click", () => {
+      const willOpen = languageMenu.hidden;
+      languageMenu.hidden = !willOpen;
+      languageMenuButton.setAttribute("aria-expanded", String(willOpen));
+    });
+
+    languageButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        applyLanguage(button.dataset.lang);
+        languageMenu.hidden = true;
+        languageMenuButton.setAttribute("aria-expanded", "false");
+      });
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".language-control")) {
+        languageMenu.hidden = true;
+        languageMenuButton.setAttribute("aria-expanded", "false");
+      }
+    });
+
+    applyLanguage("zh");
     exportButton.addEventListener("click", exportAnimation);
   </script>
 </body>
