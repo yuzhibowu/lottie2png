@@ -7,16 +7,16 @@
   <style>
     :root {
       color-scheme: light;
-      --ink: #1f2933;
-      --muted: #667085;
-      --line: #d7dde5;
-      --paper: #f6f3ef;
+      --ink: #1a1a1a;
+      --muted: #666666;
+      --line: #d0d0d0;
+      --paper: #f2f2f2;
       --panel: #ffffff;
-      --accent: #0f766e;
-      --accent-dark: #0b5f59;
-      --warm: #b45309;
-      --danger: #b42318;
-      --shadow: 0 18px 50px rgba(31, 41, 51, 0.12);
+      --accent: #222222;
+      --accent-dark: #000000;
+      --warm: #888888;
+      --danger: #222222;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.12);
     }
 
     * {
@@ -30,7 +30,7 @@
       color: var(--ink);
       background:
         linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.48)),
-        repeating-linear-gradient(45deg, rgba(15,118,110,0.08) 0 12px, rgba(180,83,9,0.07) 12px 24px),
+        repeating-linear-gradient(45deg, rgba(0,0,0,0.035) 0 12px, rgba(0,0,0,0.065) 12px 24px),
         var(--paper);
     }
 
@@ -89,7 +89,7 @@
     .panel,
     .preview-shell {
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 0;
       background: rgba(255,255,255,0.92);
       box-shadow: var(--shadow);
     }
@@ -104,9 +104,9 @@
       place-items: center;
       min-height: 188px;
       padding: 22px;
-      border: 2px dashed #9aa7b7;
-      border-radius: 8px;
-      background: #fbfcfd;
+      border: 2px dashed #999999;
+      border-radius: 0;
+      background: #fafafa;
       text-align: center;
       cursor: pointer;
       transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
@@ -115,7 +115,7 @@
     .dropzone:hover,
     .dropzone.dragover {
       border-color: var(--accent);
-      background: #eefaf8;
+      background: #f0f0f0;
       transform: translateY(-1px);
     }
 
@@ -134,7 +134,7 @@
       border-radius: 50%;
       display: grid;
       place-items: center;
-      background: #dff4f1;
+      background: #eeeeee;
       color: var(--accent-dark);
     }
 
@@ -142,13 +142,6 @@
       margin: 0;
       font-weight: 800;
       font-size: 18px;
-    }
-
-    .upload-copy {
-      margin: 8px 0 0;
-      color: var(--muted);
-      line-height: 1.5;
-      font-size: 14px;
     }
 
     .file-name {
@@ -171,7 +164,7 @@
     }
 
     label {
-      color: #344054;
+      color: #333333;
       font-size: 13px;
       font-weight: 800;
     }
@@ -192,16 +185,17 @@
     select {
       width: 100%;
       height: 42px;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
+      border: 1px solid #cccccc;
+      border-radius: 0;
       padding: 0 10px;
       background: white;
       color: var(--ink);
+      font-size: 13px;
     }
 
     .quick-sizes {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 8px;
     }
 
@@ -230,10 +224,10 @@
       align-items: center;
       justify-content: center;
       padding: 7px 9px;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
+      border: 1px solid #cccccc;
+      border-radius: 0;
       background: white;
-      color: #344054;
+      color: #333333;
       font-size: 13px;
       font-weight: 800;
       text-align: center;
@@ -241,7 +235,7 @@
 
     .format-option input:checked + span {
       border-color: var(--accent);
-      background: #e6f6f3;
+      background: #eeeeee;
       color: var(--accent-dark);
     }
 
@@ -252,17 +246,18 @@
 
     .chip {
       height: 36px;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
+      border: 1px solid #cccccc;
+      border-radius: 0;
       background: white;
-      color: #344054;
+      color: #333333;
+      font-size: 13px;
       font-weight: 800;
       cursor: pointer;
     }
 
     .chip.active {
       border-color: var(--accent);
-      background: #e6f6f3;
+      background: #eeeeee;
       color: var(--accent-dark);
     }
 
@@ -274,14 +269,15 @@
     }
 
     .button {
-      min-height: 46px;
+      min-height: 40px;
       border: 0;
-      border-radius: 8px;
+      border-radius: 0;
       padding: 0 14px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 9px;
+      font-size: 13px;
       font-weight: 900;
       cursor: pointer;
       transition: transform 120ms ease, background 120ms ease, opacity 120ms ease;
@@ -306,8 +302,8 @@
     }
 
     .secondary {
-      background: #eef2f6;
-      color: #243447;
+      background: #eeeeee;
+      color: #222222;
     }
 
     .status {
@@ -326,8 +322,8 @@
     .progress {
       height: 8px;
       margin-top: 10px;
-      border-radius: 99px;
-      background: #e5e7eb;
+      border-radius: 0;
+      background: #dddddd;
       overflow: hidden;
     }
 
@@ -335,7 +331,7 @@
       display: block;
       width: 0%;
       height: 100%;
-      background: linear-gradient(90deg, var(--accent), var(--warm));
+      background: linear-gradient(90deg, #111111, #888888);
       transition: width 100ms linear;
     }
 
@@ -376,12 +372,12 @@
       display: grid;
       place-items: center;
       padding: 24px;
-      background-color: #f8fafc;
+      background-color: #fafafa;
       background-image:
-        linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
-        linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
-        linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+        linear-gradient(45deg, #dddddd 25%, transparent 25%),
+        linear-gradient(-45deg, #dddddd 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #dddddd 75%),
+        linear-gradient(-45deg, transparent 75%, #dddddd 75%);
       background-position: 0 0, 0 10px, 10px -10px, -10px 0;
       background-size: 20px 20px;
     }
@@ -391,7 +387,7 @@
       aspect-ratio: 1 / 1;
       display: grid;
       place-items: center;
-      border-radius: 8px;
+      border-radius: 0;
       background: rgba(255,255,255,0.68);
       overflow: hidden;
     }
@@ -399,7 +395,7 @@
     .empty {
       max-width: 340px;
       text-align: center;
-      color: #697586;
+      color: #666666;
       line-height: 1.6;
       font-weight: 700;
     }
@@ -473,7 +469,6 @@
               </svg>
             </span>
             <span class="upload-title">选择或拖入 JSON 文件</span>
-            <span class="upload-copy">支持常见 Lottie / Bodymovin 动画文件</span>
             <span class="file-name" id="fileName"></span>
           </span>
         </label>
@@ -495,6 +490,7 @@
               <button class="chip active" type="button" data-size="512">512</button>
               <button class="chip" type="button" data-size="1024">1024</button>
               <button class="chip" type="button" data-size="2048">2048</button>
+              <button class="chip" type="button" data-size="4096">4096</button>
             </div>
             <div class="field-row">
               <input id="sizeRange" type="range" min="128" max="4096" step="64" value="512">
@@ -515,7 +511,7 @@
             <select id="modeSelect">
               <option value="full">完整动画</option>
               <option value="short">前 3 秒</option>
-              <option value="loop">自动取一个循环段</option>
+              <option value="loop" selected>自动取一个循环段</option>
             </select>
           </div>
 
