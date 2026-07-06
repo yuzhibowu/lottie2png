@@ -225,9 +225,13 @@
 
     .field-row {
       display: grid;
-      grid-template-columns: 1fr 118px;
+      grid-template-columns: minmax(0, 1fr) calc((100% - 24px) / 4);
       gap: 10px;
       align-items: center;
+    }
+
+    .fps-field {
+      margin-top: 3px;
     }
 
     input[type="range"] {
@@ -248,6 +252,7 @@
 
     input[type="number"] {
       height: 36px;
+      text-align: left;
     }
 
     select {
@@ -404,16 +409,16 @@
     .language-trigger {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 4px;
       color: #111111;
       font-size: 13px;
       font-weight: 800;
     }
 
     .language-menu-button {
-      width: 10px;
-      height: 10px;
-      min-width: 10px;
+      width: 5px;
+      height: 5px;
+      min-width: 5px;
       padding: 0;
       border: 0;
       border-radius: 50%;
@@ -422,18 +427,18 @@
     }
 
     .language-menu-button[aria-expanded="true"] {
-      width: 18px;
-      height: 18px;
-      min-width: 18px;
+      width: 9px;
+      height: 9px;
+      min-width: 9px;
       border-radius: 0;
     }
 
     .language-menu-button[aria-expanded="true"]::after {
       content: "";
       display: block;
-      width: 5px;
-      height: 5px;
-      margin: 4px auto 0;
+      width: 3px;
+      height: 3px;
+      margin: 1px auto 0;
       border-right: 1px solid #ffffff;
       border-bottom: 1px solid #ffffff;
       transform: rotate(45deg);
@@ -442,10 +447,10 @@
     .language-menu {
       position: absolute;
       left: 0;
-      bottom: 30px;
+      bottom: 15px;
       z-index: 10;
-      width: 220px;
-      padding: 10px 0;
+      width: 110px;
+      padding: 5px 0;
       border: 1px solid #bdbdbd;
       background: #000000;
       box-shadow: var(--shadow);
@@ -457,12 +462,12 @@
 
     .language-menu button {
       width: 100%;
-      min-height: 48px;
-      padding: 0 30px;
+      min-height: 24px;
+      padding: 0 15px;
       border: 0;
       background: #000000;
       color: #ffffff;
-      font-size: 20px;
+      font-size: 13px;
       font-weight: 800;
       text-align: left;
       cursor: pointer;
@@ -543,7 +548,6 @@
     #lottiePreview > canvas {
       transform: scale(var(--preview-scale)) !important;
       transform-origin: 50% 50%;
-      transition: transform 80ms ease-out;
     }
 
     .empty {
@@ -674,7 +678,7 @@
             </div>
           </div>
 
-          <div class="field">
+          <div class="field fps-field">
             <label for="fpsInput" data-i18n="fps">帧率</label>
             <div class="field-row">
               <input id="fpsRange" type="range" min="1" max="120" step="0.01" value="30">
@@ -853,6 +857,8 @@
     let currentFileBase = "lottie";
     let isExporting = false;
     let previewScale = 1;
+    let previewTargetScale = 1;
+    let zoomAnimationFrame = null;
     let currentLanguage = "zh";
     let sourceMeta = null;
     let lastStatus = null;
@@ -912,6 +918,27 @@
 
     function applyPreviewScale() {
       previewHost.style.setProperty("--preview-scale", String(previewScale));
+    }
+
+    function animatePreviewZoom() {
+      const difference = previewTargetScale - previewScale;
+      previewScale += difference * 0.12;
+
+      if (Math.abs(difference) < 0.0005) {
+        previewScale = previewTargetScale;
+        zoomAnimationFrame = null;
+        applyPreviewScale();
+        return;
+      }
+
+      applyPreviewScale();
+      zoomAnimationFrame = requestAnimationFrame(animatePreviewZoom);
+    }
+
+    function startPreviewZoomAnimation() {
+      if (zoomAnimationFrame === null) {
+        zoomAnimationFrame = requestAnimationFrame(animatePreviewZoom);
+      }
     }
 
     function cleanName(name) {
@@ -1018,6 +1045,11 @@
 
         animationData = data;
         previewScale = 1;
+        previewTargetScale = 1;
+        if (zoomAnimationFrame !== null) {
+          cancelAnimationFrame(zoomAnimationFrame);
+          zoomAnimationFrame = null;
+        }
         applyPreviewScale();
         currentFileBase = cleanName(file.name);
         fileName.textContent = file.name;
@@ -1316,9 +1348,10 @@
       if (!animationData || isExporting) return;
       event.preventDefault();
       if (event.deltaY === 0) return;
-      const scaleFactor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
-      previewScale = Math.max(0.1, Math.min(4, previewScale * scaleFactor));
-      applyPreviewScale();
+      const normalizedDelta = Math.max(-120, Math.min(120, event.deltaY));
+      const scaleFactor = Math.exp(-normalizedDelta * 0.00035);
+      previewTargetScale = Math.max(0.1, Math.min(4, previewTargetScale * scaleFactor));
+      startPreviewZoomAnimation();
     }, { passive: false });
 
     sizeChips.forEach((chip) => {
