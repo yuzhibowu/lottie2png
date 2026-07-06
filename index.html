@@ -525,9 +525,11 @@
         linear-gradient(-45deg, transparent 75%, #dddddd 75%);
       background-position: 0 0, 0 10px, 10px -10px, -10px 0;
       background-size: 20px 20px;
+      overscroll-behavior: contain;
     }
 
     #lottiePreview {
+      --preview-scale: 1;
       width: min(100%, 744px);
       aspect-ratio: 1 / 1;
       display: grid;
@@ -535,6 +537,13 @@
       border-radius: 0;
       background: rgba(255,255,255,0.68);
       overflow: hidden;
+    }
+
+    #lottiePreview > svg,
+    #lottiePreview > canvas {
+      transform: scale(var(--preview-scale));
+      transform-origin: 50% 50%;
+      transition: transform 80ms ease-out;
     }
 
     .empty {
@@ -817,6 +826,7 @@
     const dropzone = document.querySelector("#dropzone");
     const fileName = document.querySelector("#fileName");
     const previewHost = document.querySelector("#lottiePreview");
+    const previewStage = document.querySelector(".stage");
     const renderHost = document.querySelector("#renderHost");
     const playButton = document.querySelector("#playButton");
     const exportButton = document.querySelector("#exportButton");
@@ -842,6 +852,7 @@
     let previewAnim = null;
     let currentFileBase = "lottie";
     let isExporting = false;
+    let previewScale = 1;
     let currentLanguage = "zh";
     let sourceMeta = null;
     let lastStatus = null;
@@ -897,6 +908,10 @@
 
     function setProgress(value) {
       progressBar.style.width = `${Math.max(0, Math.min(100, value))}%`;
+    }
+
+    function applyPreviewScale() {
+      previewHost.style.setProperty("--preview-scale", String(previewScale));
     }
 
     function cleanName(name) {
@@ -1002,6 +1017,8 @@
         }
 
         animationData = data;
+        previewScale = 1;
+        applyPreviewScale();
         currentFileBase = cleanName(file.name);
         fileName.textContent = file.name;
         previewTitle.textContent = file.name;
@@ -1060,7 +1077,11 @@
       }
       const ctx = targetCanvas.getContext("2d", { willReadFrequently: true });
       ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-      ctx.drawImage(sourceCanvas, 0, 0, targetCanvas.width, targetCanvas.height);
+      const scaledWidth = targetCanvas.width * previewScale;
+      const scaledHeight = targetCanvas.height * previewScale;
+      const offsetX = (targetCanvas.width - scaledWidth) / 2;
+      const offsetY = (targetCanvas.height - scaledHeight) / 2;
+      ctx.drawImage(sourceCanvas, offsetX, offsetY, scaledWidth, scaledHeight);
       if (asPixels) {
         return ctx.getImageData(0, 0, targetCanvas.width, targetCanvas.height).data.buffer;
       }
@@ -1290,6 +1311,14 @@
     fpsRange.addEventListener("input", () => syncFrameRate(fpsRange.value));
     fpsInput.addEventListener("change", () => syncFrameRate(fpsInput.value));
     modeSelect.addEventListener("change", updateFrameEstimate);
+
+    previewStage.addEventListener("wheel", (event) => {
+      if (!animationData || isExporting) return;
+      event.preventDefault();
+      const scaleFactor = Math.exp(-event.deltaY * 0.0015);
+      previewScale = Math.max(0.1, Math.min(4, previewScale * scaleFactor));
+      applyPreviewScale();
+    }, { passive: false });
 
     sizeChips.forEach((chip) => {
       chip.addEventListener("click", () => syncNumeric(sizeRange, sizeInput, 128, 4096, chip.dataset.size));
