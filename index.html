@@ -541,7 +541,7 @@
 
     #lottiePreview > svg,
     #lottiePreview > canvas {
-      transform: scale(var(--preview-scale));
+      transform: scale(var(--preview-scale)) !important;
       transform-origin: 50% 50%;
       transition: transform 80ms ease-out;
     }
@@ -1315,7 +1315,8 @@
     previewStage.addEventListener("wheel", (event) => {
       if (!animationData || isExporting) return;
       event.preventDefault();
-      const scaleFactor = Math.exp(-event.deltaY * 0.0015);
+      if (event.deltaY === 0) return;
+      const scaleFactor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
       previewScale = Math.max(0.1, Math.min(4, previewScale * scaleFactor));
       applyPreviewScale();
     }, { passive: false });
