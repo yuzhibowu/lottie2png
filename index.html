@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lottie 转 PNG 动图</title>
-  <script src="./node_modules/lottie-web/build/player/lottie.min.js"></script>
-  <script src="./node_modules/pako/dist/pako.min.js"></script>
-  <script src="./node_modules/upng-js/UPNG.js"></script>
+  <script src="./vendor/lottie.min.js"></script>
+  <script src="./vendor/pako.min.js"></script>
+  <script src="./vendor/UPNG.js"></script>
   <style>
     :root {
       color-scheme: light;
@@ -548,6 +548,10 @@
     let currentFileBase = "lottie";
     let isExporting = false;
 
+    const librariesReady = typeof window.lottie !== "undefined"
+      && typeof window.pako !== "undefined"
+      && typeof window.UPNG !== "undefined";
+
     function setStatus(message, isError = false) {
       statusEl.textContent = message;
       statusEl.classList.toggle("error", isError);
@@ -640,6 +644,9 @@
 
     async function loadFile(file) {
       try {
+        if (!librariesReady) {
+          throw new Error("转换组件加载失败，请刷新页面后重试。");
+        }
         setProgress(0);
         setStatus("正在读取 JSON...");
         const text = await file.text();
