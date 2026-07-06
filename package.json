@@ -2,12 +2,20 @@
   "name": "lottie-to-apng-tool",
   "version": "1.0.0",
   "private": true,
-  "description": "把 Lottie JSON 转成可循环播放的高清 PNG 动图。",
+  "description": "把 Lottie JSON 转成 APNG、ProRes 4444 MOV、GIF 或 PNG 序列。",
   "scripts": {
-    "start": "python3 -m http.server 5173"
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "vite build",
+    "start": "vite --host 0.0.0.0 --port 5173"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "jszip": "^3.10.1",
     "lottie-web": "^5.13.0",
     "upng-js": "^2.1.0"
+  },
+  "devDependencies": {
+    "vite": "^8.1.3"
   }
 }

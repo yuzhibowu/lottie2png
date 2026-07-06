@@ -3,10 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lottie 转 PNG 动图</title>
-  <script src="./vendor/lottie.min.js"></script>
-  <script src="./vendor/pako.min.js"></script>
-  <script src="./vendor/UPNG.js"></script>
+  <title>Lottie 动画格式转换工具</title>
   <style>
     :root {
       color-scheme: light;
@@ -206,6 +203,51 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 8px;
+    }
+
+    .format-options {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .format-option {
+      min-width: 0;
+      cursor: pointer;
+    }
+
+    .format-option input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+
+    .format-option span {
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 9px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: white;
+      color: #344054;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .format-option input:checked + span {
+      border-color: var(--accent);
+      background: #e6f6f3;
+      color: var(--accent-dark);
+    }
+
+    .format-option input:focus-visible + span {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
 
     .chip {
@@ -413,8 +455,8 @@
   <div class="app">
     <header>
       <div>
-        <h1>Lottie 转 PNG 动图</h1>
-        <p class="subhead">把网上下载的 Lottie JSON 转成高清 APNG，保持透明背景，并默认循环播放。</p>
+        <h1>Lottie 动画格式转换</h1>
+        <p class="subhead">把 Lottie JSON 转成 APNG、ProRes 4444 MOV、GIF 或 PNG 序列。</p>
       </div>
       <div class="brand-name">饼饼SHOW</div>
     </header>
@@ -437,6 +479,16 @@
         </label>
 
         <div class="controls">
+          <div class="field">
+            <label>导出格式</label>
+            <div class="format-options" role="radiogroup" aria-label="导出格式">
+              <label class="format-option"><input type="radio" name="exportFormat" value="apng" checked><span>PNG 动图</span></label>
+              <label class="format-option"><input type="radio" name="exportFormat" value="mov"><span>ProRes 4444 MOV</span></label>
+              <label class="format-option"><input type="radio" name="exportFormat" value="gif"><span>GIF 动图</span></label>
+              <label class="format-option"><input type="radio" name="exportFormat" value="sequence"><span>PNG 序列 ZIP</span></label>
+            </div>
+          </div>
+
           <div class="field">
             <label for="sizeInput">导出尺寸</label>
             <div class="quick-sizes">
@@ -479,7 +531,7 @@
                 <path d="M12 3v12m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M5 19h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               </svg>
-              导出 PNG
+              <span id="exportButtonText">导出 PNG 动图</span>
             </button>
           </div>
         </div>
@@ -499,7 +551,7 @@
           </div>
         </div>
         <div class="preview-bottom">
-          <span id="detailText">导出结果为 `.png` 文件，支持透明背景。</span>
+          <span id="detailText">支持透明背景与循环动画导出。</span>
           <span id="frameText">0 帧</span>
         </div>
       </section>
@@ -510,7 +562,16 @@
     <div id="renderHost"></div>
   </div>
 
-  <script>
+  <script type="module">
+    import lottie from "lottie-web";
+    import UPNG from "upng-js";
+    import { FFmpeg } from "@ffmpeg/ffmpeg";
+    import { fetchFile, toBlobURL } from "@ffmpeg/util";
+    import JSZip from "jszip";
+
+    const ffmpegCoreBase = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm";
+    let ffmpegCoreUrls = null;
+
     const fileInput = document.querySelector("#fileInput");
     const dropzone = document.querySelector("#dropzone");
     const fileName = document.querySelector("#fileName");
@@ -518,6 +579,7 @@
     const renderHost = document.querySelector("#renderHost");
     const playButton = document.querySelector("#playButton");
     const exportButton = document.querySelector("#exportButton");
+    const exportButtonText = document.querySelector("#exportButtonText");
     const statusEl = document.querySelector("#status");
     const progressBar = document.querySelector("#progressBar");
     const previewTitle = document.querySelector("#previewTitle");
@@ -529,16 +591,13 @@
     const fpsRange = document.querySelector("#fpsRange");
     const fpsInput = document.querySelector("#fpsInput");
     const modeSelect = document.querySelector("#modeSelect");
+    const formatInputs = [...document.querySelectorAll('input[name="exportFormat"]')];
     const sizeChips = [...document.querySelectorAll(".chip")];
 
     let animationData = null;
     let previewAnim = null;
     let currentFileBase = "lottie";
     let isExporting = false;
-
-    const librariesReady = typeof window.lottie !== "undefined"
-      && typeof window.pako !== "undefined"
-      && typeof window.UPNG !== "undefined";
 
     function setStatus(message, isError = false) {
       statusEl.textContent = message;
@@ -642,9 +701,6 @@
 
     async function loadFile(file) {
       try {
-        if (!librariesReady) {
-          throw new Error("转换组件加载失败，请刷新页面后重试。");
-        }
         setProgress(0);
         setStatus("正在读取 JSON...");
         const text = await file.text();
@@ -670,7 +726,7 @@
         syncFrameRate(fps);
         playButton.disabled = false;
         exportButton.disabled = false;
-        setStatus("已载入，可以预览或导出 PNG 动图。");
+        setStatus("已载入，可以选择格式并导出。");
         setProgress(0);
         loadPreview();
         updateFrameEstimate();
@@ -681,7 +737,7 @@
         playButton.disabled = true;
         exportButton.disabled = true;
         meta.textContent = "未载入";
-        detailText.textContent = "导出结果为 `.png` 文件，支持透明背景。";
+        detailText.textContent = "支持透明背景与循环动画导出。";
         frameText.textContent = "0 帧";
         setStatus(error.message || "读取失败，请换一个 JSON 文件。", true);
       }
@@ -701,7 +757,7 @@
       return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     }
 
-    async function renderFrame(anim, targetCanvas, frame) {
+    async function renderFrame(anim, targetCanvas, frame, asPixels) {
       anim.goToAndStop(frame, true);
       await nextPaint();
       const sourceCanvas = renderHost.querySelector("canvas");
@@ -711,10 +767,120 @@
       const ctx = targetCanvas.getContext("2d", { willReadFrequently: true });
       ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
       ctx.drawImage(sourceCanvas, 0, 0, targetCanvas.width, targetCanvas.height);
-      return ctx.getImageData(0, 0, targetCanvas.width, targetCanvas.height).data.buffer;
+      if (asPixels) {
+        return ctx.getImageData(0, 0, targetCanvas.width, targetCanvas.height).data.buffer;
+      }
+      return new Promise((resolve, reject) => {
+        targetCanvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("PNG 帧生成失败。"));
+        }, "image/png");
+      });
     }
 
-    async function exportApng() {
+    function selectedFormat() {
+      return formatInputs.find((input) => input.checked)?.value || "apng";
+    }
+
+    function updateFormatUi() {
+      const labels = {
+        apng: "导出 PNG 动图",
+        mov: "导出 MOV",
+        gif: "导出 GIF",
+        sequence: "导出 PNG 序列"
+      };
+      exportButtonText.textContent = labels[selectedFormat()];
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    }
+
+    async function exportPngSequence(frames) {
+      const zip = new JSZip();
+      frames.forEach((frame, index) => {
+        zip.file(`${currentFileBase}_${String(index + 1).padStart(5, "0")}.png`, frame);
+      });
+      return zip.generateAsync(
+        { type: "blob", compression: "DEFLATE" },
+        ({ percent }) => {
+          setProgress(72 + (percent / 100) * 27);
+          setStatus(`正在打包 PNG 序列 ${Math.round(percent)}%...`);
+        }
+      );
+    }
+
+    async function loadBrowserFfmpeg() {
+      setStatus("首次使用，正在加载视频编码器（约 31 MB）...");
+      if (!ffmpegCoreUrls) {
+        ffmpegCoreUrls = Promise.all([
+          toBlobURL(`${ffmpegCoreBase}/ffmpeg-core.js`, "text/javascript"),
+          toBlobURL(`${ffmpegCoreBase}/ffmpeg-core.wasm`, "application/wasm")
+        ]);
+      }
+
+      const [coreURL, wasmURL] = await ffmpegCoreUrls;
+      const ffmpeg = new FFmpeg();
+      let latestLog = "";
+      ffmpeg.on("log", ({ message }) => {
+        latestLog = message;
+      });
+      ffmpeg.on("progress", ({ progress }) => {
+        if (Number.isFinite(progress)) {
+          setProgress(84 + Math.min(1, Math.max(0, progress)) * 15);
+        }
+      });
+      await ffmpeg.load({ coreURL, wasmURL });
+      return { ffmpeg, getLatestLog: () => latestLog };
+    }
+
+    async function exportEncodedFile(format, frames, fps) {
+      const { ffmpeg, getLatestLog } = await loadBrowserFfmpeg();
+      const frameNames = frames.map((_, index) => `frame_${String(index).padStart(5, "0")}.png`);
+      const outputName = format === "mov" ? "output.mov" : "output.gif";
+      const args = format === "mov"
+        ? [
+            "-framerate", String(fps), "-i", "frame_%05d.png",
+            "-c:v", "prores_ks", "-profile:v", "4", "-pix_fmt", "yuva444p10le", "-vendor", "apl0",
+            outputName
+          ]
+        : [
+            "-framerate", String(fps), "-i", "frame_%05d.png",
+            "-filter_complex",
+            "[0:v]split[s0][s1];[s0]palettegen=reserve_transparent=on:stats_mode=single[p];[s1][p]paletteuse=alpha_threshold=128",
+            "-loop", "0", outputName
+          ];
+
+      try {
+        for (let index = 0; index < frames.length; index += 1) {
+          await ffmpeg.writeFile(frameNames[index], await fetchFile(frames[index]));
+          setProgress(72 + ((index + 1) / frames.length) * 10);
+          setStatus(`正在准备编码第 ${index + 1} / ${frames.length} 帧...`);
+        }
+
+        setStatus(format === "mov" ? "正在编码 ProRes 4444 MOV..." : "正在编码 GIF 动图...");
+        const exitCode = await ffmpeg.exec(args);
+        if (exitCode !== 0) {
+          throw new Error(getLatestLog() || `编码器退出，错误码 ${exitCode}`);
+        }
+        const output = await ffmpeg.readFile(outputName);
+        return new Blob([output.buffer], {
+          type: format === "mov" ? "video/quicktime" : "image/gif"
+        });
+      } finally {
+        await Promise.allSettled([...frameNames, outputName].map((name) => ffmpeg.deleteFile(name)));
+        ffmpeg.terminate();
+      }
+    }
+
+    async function exportAnimation() {
       if (!animationData || isExporting) return;
 
       isExporting = true;
@@ -724,7 +890,8 @@
 
       const size = clampNumber(sizeInput.value, 128, 4096);
       const fps = Math.max(1, Math.min(120, Number(fpsInput.value) || 30));
-      const { start, end, sourceFps } = getFrameBounds();
+      const format = selectedFormat();
+      const { start, end } = getFrameBounds();
       const frameCount = getExportFrameCount();
       const frameDurationMs = Math.round(1000 / fps);
       const targetCanvas = document.createElement("canvas");
@@ -753,34 +920,41 @@
         await nextPaint();
 
         const frames = [];
-        const delays = [];
+        const asPixels = format === "apng";
 
         for (let index = 0; index < frameCount; index += 1) {
           const progress = index / frameCount;
           const frame = start + progress * (end - start);
-          frames.push(await renderFrame(renderAnim, targetCanvas, frame));
-          delays.push(frameDurationMs);
+          frames.push(await renderFrame(renderAnim, targetCanvas, frame, asPixels));
           if (index % 2 === 0 || index === frameCount - 1) {
-            setProgress(((index + 1) / frameCount) * 86);
+            setProgress(((index + 1) / frameCount) * 70);
             setStatus(`正在渲染第 ${index + 1} / ${frameCount} 帧...`);
             await new Promise((resolve) => setTimeout(resolve, 0));
           }
         }
 
-        setStatus("正在打包 PNG 动图...");
-        setProgress(92);
-        const arrayBuffer = UPNG.encode(frames, size, size, 0, delays);
-        const blob = new Blob([arrayBuffer], { type: "image/png" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${currentFileBase}-${size}px-${fps}fps.png`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 3000);
+        let blob;
+        let filename;
+        if (format === "apng") {
+          setStatus("正在打包 PNG 动图...");
+          setProgress(88);
+          const delays = Array(frameCount).fill(frameDurationMs);
+          const arrayBuffer = UPNG.encode(frames, size, size, 0, delays);
+          blob = new Blob([arrayBuffer], { type: "image/png" });
+          filename = `${currentFileBase}-${size}px-${fps}fps.png`;
+        } else if (format === "sequence") {
+          blob = await exportPngSequence(frames);
+          filename = `${currentFileBase}-png-sequence.zip`;
+        } else {
+          blob = await exportEncodedFile(format, frames, fps);
+          filename = format === "mov"
+            ? `${currentFileBase}-${size}px-${fps}fps-prores4444.mov`
+            : `${currentFileBase}-${size}px-${fps}fps.gif`;
+        }
+
+        downloadBlob(blob, filename);
         setProgress(100);
-        setStatus("导出完成。得到的是可循环播放的 PNG 动图。");
+        setStatus(`导出完成：${filename}`);
       } catch (error) {
         const message = error?.message || "导出失败。";
         const hint = message.includes("tainted")
@@ -836,7 +1010,9 @@
       }
     });
 
-    exportButton.addEventListener("click", exportApng);
+    formatInputs.forEach((input) => input.addEventListener("change", updateFormatUi));
+    updateFormatUi();
+    exportButton.addEventListener("click", exportAnimation);
   </script>
 </body>
 </html>
