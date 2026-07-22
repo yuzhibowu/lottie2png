@@ -680,9 +680,15 @@
 
           <div class="field fps-field">
             <label for="fpsInput" data-i18n="fps">帧率</label>
+            <div class="quick-sizes">
+              <button class="chip" type="button" data-fps="15">15</button>
+              <button class="chip active" type="button" data-fps="24">24</button>
+              <button class="chip" type="button" data-fps="30">30</button>
+              <button class="chip" type="button" data-fps="60">60</button>
+            </div>
             <div class="field-row">
-              <input id="fpsRange" type="range" min="1" max="120" step="0.01" value="30">
-              <input id="fpsInput" type="number" min="1" max="120" step="0.01" value="30">
+              <input id="fpsRange" type="range" min="1" max="120" step="0.01" value="24">
+              <input id="fpsInput" type="number" min="1" max="120" step="0.01" value="24">
             </div>
           </div>
 
@@ -848,7 +854,8 @@
     const modeSelect = document.querySelector("#modeSelect");
     const formatInputs = [...document.querySelectorAll('input[name="exportFormat"]')];
     const formatOptions = [...document.querySelectorAll(".format-option")];
-    const sizeChips = [...document.querySelectorAll(".chip")];
+    const sizeChips = [...document.querySelectorAll("[data-size]")];
+    const fpsChips = [...document.querySelectorAll("[data-fps]")];
     const languageMenu = document.querySelector("#languageMenu");
     const languageMenuButton = document.querySelector("#languageMenuButton");
     const languageButtons = [...languageMenu.querySelectorAll("[data-lang]")];
@@ -1177,10 +1184,11 @@
 
     function syncFrameRate(value) {
       const number = Number(value);
-      const next = Number.isFinite(number) ? Math.max(1, Math.min(120, number)) : 30;
+      const next = Number.isFinite(number) ? Math.max(1, Math.min(120, number)) : 24;
       const displayValue = Number(next.toFixed(2));
       fpsRange.value = displayValue;
       fpsInput.value = displayValue;
+      fpsChips.forEach((chip) => chip.classList.toggle("active", Number(chip.dataset.fps) === displayValue));
       updateFrameEstimate();
     }
 
@@ -1255,7 +1263,7 @@
     function getExportFrameCount() {
       if (!animationData) return 0;
       const { start, end, sourceFps } = getFrameBounds();
-      const targetFps = Number(fpsInput.value) || 30;
+      const targetFps = Number(fpsInput.value) || 24;
       const durationSeconds = Math.max(1 / sourceFps, (end - start) / sourceFps);
       return Math.max(1, Math.ceil(durationSeconds * targetFps));
     }
@@ -1267,7 +1275,7 @@
       }
       const frames = getExportFrameCount();
       const size = Number(sizeInput.value);
-      const fps = Number(fpsInput.value) || 30;
+      const fps = Number(fpsInput.value) || 24;
       frameText.textContent = t("frameSummary", { fps, frames, size });
     }
 
@@ -1333,7 +1341,6 @@
 
         meta.textContent = `${width} x ${height} · ${fps}fps`;
         detailText.textContent = t("detailLoaded", { seconds });
-        syncFrameRate(fps);
         playButton.disabled = false;
         exportButton.disabled = false;
         setStatusKey("loaded");
@@ -1661,7 +1668,7 @@
         ? nearestSizePreset(clampNumber(sizeInput.value, preset.min, preset.max), preset.values)
         : clampNumber(sizeInput.value, preset.min, preset.max);
       syncExportSize(size);
-      const fps = Math.max(1, Math.min(120, Number(fpsInput.value) || 30));
+      const fps = Math.max(1, Math.min(120, Number(fpsInput.value) || 24));
       const format = selectedFormat();
       const { start, end } = getFrameBounds();
       const frameCount = getExportFrameCount();
@@ -1770,6 +1777,10 @@
 
     sizeChips.forEach((chip) => {
       chip.addEventListener("click", () => syncExportSize(chip.dataset.size));
+    });
+
+    fpsChips.forEach((chip) => {
+      chip.addEventListener("click", () => syncFrameRate(chip.dataset.fps));
     });
 
     playButton.addEventListener("click", () => {
