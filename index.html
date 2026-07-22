@@ -847,6 +847,7 @@
     const fpsInput = document.querySelector("#fpsInput");
     const modeSelect = document.querySelector("#modeSelect");
     const formatInputs = [...document.querySelectorAll('input[name="exportFormat"]')];
+    const formatOptions = [...document.querySelectorAll(".format-option")];
     const sizeChips = [...document.querySelectorAll(".chip")];
     const languageMenu = document.querySelector("#languageMenu");
     const languageMenuButton = document.querySelector("#languageMenuButton");
@@ -861,7 +862,22 @@
     let zoomAnimationFrame = null;
     let currentLanguage = "zh";
     let sourceMeta = null;
+    let featureReport = null;
     let lastStatus = null;
+    const SIZE_PRESETS = {
+      default: { values: [512, 1024, 2048, 4096], min: 128, max: 4096, step: 64 },
+      gif: { values: [135, 270, 512, 1024], min: 135, max: 1024, step: 1 }
+    };
+    const debugEnabled = new URLSearchParams(window.location.search).has("debug")
+      || window.localStorage?.getItem("lottieDebug") === "1";
+    const WAIT_TIMEOUTS = {
+      dom: 5000,
+      images: 8000,
+      imagesOptional: 600,
+      fonts: 5000,
+      frame: 1200,
+      svgImageDecode: 8000
+    };
 
     function t(key, params = {}) {
       const template = translations[currentLanguage][key] || translations.zh[key] || key;
@@ -941,6 +957,158 @@
       }
     }
 
+    function debugLog(stage, details = {}) {
+      if (!debugEnabled) return;
+      let payload = details;
+      try {
+        payload = JSON.stringify(details);
+      } catch {
+        payload = String(details);
+      }
+      console.debug(`[lottie2png] ${stage}`, payload);
+    }
+
+    function cloneAnimationData(data) {
+      if (typeof structuredClone === "function") {
+        return structuredClone(data);
+      }
+      return JSON.parse(JSON.stringify(data));
+    }
+
+    function scanLottieFeatures(data) {
+      const report = {
+        imageAsset: false,
+        textLayer: false,
+        mask: false,
+        matte: false,
+        gradient: false,
+        repeater: false,
+        trimPath: false,
+        expression: false,
+        effect: false,
+        timeRemapping: false,
+        threeDLayer: false,
+        camera: false
+      };
+
+      const visitShape = (shape) => {
+        if (!shape || typeof shape !== "object") return;
+        if (shape.ty === "gf" || shape.ty === "gs") report.gradient = true;
+        if (shape.ty === "rp") report.repeater = true;
+        if (shape.ty === "tm") report.trimPath = true;
+        for (const value of Object.values(shape)) {
+          if (Array.isArray(value)) {
+            value.forEach(visitShape);
+          } else if (value && typeof value === "object") {
+            if (value.x) report.expression = true;
+          }
+        }
+      };
+
+      const visitLayer = (layer) => {
+        if (!layer || typeof layer !== "object") return;
+        if (layer.ty === 2) report.imageAsset = true;
+        if (layer.ty === 5) report.textLayer = true;
+        if (layer.ty === 13) report.camera = true;
+        if (layer.hasMask || layer.masksProperties?.length) report.mask = true;
+        if (Number.isFinite(layer.tt) || Number.isFinite(layer.td)) report.matte = true;
+        if (layer.ef?.length) report.effect = true;
+        if (layer.tm) report.timeRemapping = true;
+        if (layer.ddd) report.threeDLayer = true;
+        if (layer.ks && JSON.stringify(layer.ks).includes('"x"')) report.expression = true;
+        layer.shapes?.forEach(visitShape);
+        layer.layers?.forEach(visitLayer);
+      };
+
+      data.layers?.forEach(visitLayer);
+      data.assets?.forEach((asset) => {
+        if (asset.p && !asset.layers) report.imageAsset = true;
+        asset.layers?.forEach(visitLayer);
+      });
+
+      return report;
+    }
+
+    function waitWithTimeout(promise, ms, label, { rejectOnTimeout = false } = {}) {
+      let timeoutId;
+      const timeout = new Promise((resolve, reject) => {
+        timeoutId = window.setTimeout(() => {
+          const error = new Error(`${label} timed out after ${ms}ms`);
+          if (rejectOnTimeout) reject(error);
+          else resolve({ timedOut: true, label });
+        }, ms);
+      });
+      return Promise.race([
+        promise.then((value) => ({ timedOut: false, label, value })),
+        timeout
+      ]).finally(() => window.clearTimeout(timeoutId));
+    }
+
+    function waitForAnimationEvent(anim, eventName, timeoutMs, options = {}) {
+      const rejectOnTimeout = Boolean(options.rejectOnTimeout);
+      return new Promise((resolve, reject) => {
+        let timeoutId;
+        const done = (event) => {
+          cleanup();
+          resolve({ timedOut: false, label: eventName, value: event });
+        };
+        const failed = (event) => {
+          cleanup();
+          reject(event?.nativeError || new Error(`${eventName} failed`));
+        };
+        const timedOut = () => {
+          cleanup();
+          const error = new Error(`${eventName} timed out after ${timeoutMs}ms`);
+          if (rejectOnTimeout) reject(error);
+          else resolve({ timedOut: true, label: eventName });
+        };
+        const cleanup = () => {
+          window.clearTimeout(timeoutId);
+          try {
+            anim.removeEventListener(eventName, done);
+            anim.removeEventListener("data_failed", failed);
+            anim.removeEventListener("error", failed);
+          } catch {
+            // lottie-web clears its callback registry during destroy; stale timeout cleanup is safe to ignore.
+          }
+        };
+        anim.addEventListener(eventName, done);
+        anim.addEventListener("data_failed", failed);
+        anim.addEventListener("error", failed);
+        timeoutId = window.setTimeout(timedOut, timeoutMs);
+      });
+    }
+
+    function waitForCondition(check, timeoutMs, label, intervalMs = 50) {
+      return new Promise((resolve, reject) => {
+        const startedAt = performance.now();
+        let timeoutId;
+        let intervalId;
+        const cleanup = () => {
+          window.clearTimeout(timeoutId);
+          window.clearInterval(intervalId);
+        };
+        const tick = () => {
+          let value = false;
+          try {
+            value = check();
+          } catch {
+            value = false;
+          }
+          if (value) {
+            cleanup();
+            resolve({ timedOut: false, label, value, elapsedMs: Math.round(performance.now() - startedAt) });
+          }
+        };
+        intervalId = window.setInterval(tick, intervalMs);
+        timeoutId = window.setTimeout(() => {
+          cleanup();
+          reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+        tick();
+      });
+    }
+
     function cleanName(name) {
       return name.replace(/\.[^.]+$/, "").replace(/[^\w\u4e00-\u9fa5-]+/g, "-") || "lottie";
     }
@@ -970,6 +1138,48 @@
 
     function updateSizeChips(size) {
       sizeChips.forEach((chip) => chip.classList.toggle("active", Number(chip.dataset.size) === Number(size)));
+    }
+
+    function selectedFormat() {
+      return formatInputs.find((input) => input.checked)?.value || "apng";
+    }
+
+    function currentSizePreset() {
+      return selectedFormat() === "gif" ? SIZE_PRESETS.gif : SIZE_PRESETS.default;
+    }
+
+    function nearestSizePreset(value, sizes) {
+      return sizes.reduce((nearest, size) => (
+        Math.abs(size - value) < Math.abs(nearest - value) ? size : nearest
+      ), sizes[0]);
+    }
+
+    function syncExportSize(value, { snapToPreset = false } = {}) {
+      const preset = currentSizePreset();
+      let next = clampNumber(value, preset.min, preset.max);
+      if (snapToPreset) {
+        next = nearestSizePreset(next, preset.values);
+      }
+      sizeRange.value = next;
+      sizeInput.value = next;
+      updateSizeChips(next);
+      updateFrameEstimate();
+    }
+
+    function applySizePresetForFormat() {
+      const preset = currentSizePreset();
+      sizeRange.min = preset.min;
+      sizeRange.max = preset.max;
+      sizeRange.step = preset.step;
+      sizeInput.min = preset.min;
+      sizeInput.max = preset.max;
+      sizeInput.step = preset.step;
+      preset.values.forEach((size, index) => {
+        const chip = sizeChips[index];
+        chip.dataset.size = String(size);
+        chip.textContent = String(size);
+      });
+      syncExportSize(sizeInput.value, { snapToPreset: selectedFormat() === "gif" });
     }
 
     function getSourceFrameRate() {
@@ -1028,7 +1238,7 @@
         renderer: "svg",
         loop: true,
         autoplay: true,
-        animationData
+        animationData: cloneAnimationData(animationData)
       });
     }
 
@@ -1044,6 +1254,7 @@
         }
 
         animationData = data;
+        featureReport = scanLottieFeatures(data);
         previewScale = 1;
         previewTargetScale = 1;
         if (zoomAnimationFrame !== null) {
@@ -1062,6 +1273,15 @@
         const seconds = totalFrames ? (totalFrames / fps).toFixed(2) : "0";
 
         sourceMeta = { width, height, fps, seconds };
+        debugLog("file-loaded", {
+          fileName: file.name,
+          lottieVersion: data.v || "unknown",
+          width,
+          height,
+          fps,
+          totalFrames,
+          features: featureReport
+        });
 
         meta.textContent = `${width} x ${height} · ${fps}fps`;
         detailText.textContent = t("detailLoaded", { seconds });
@@ -1075,6 +1295,7 @@
       } catch (error) {
         animationData = null;
         sourceMeta = null;
+        featureReport = null;
         destroyPreview();
         previewHost.innerHTML = `<div class="empty">${t("noPreview")}</div>`;
         playButton.disabled = true;
@@ -1086,23 +1307,77 @@
       }
     }
 
-    function waitForAnimation(anim, eventName) {
-      return new Promise((resolve) => {
-        const done = () => {
-          anim.removeEventListener(eventName, done);
-          resolve();
-        };
-        anim.addEventListener(eventName, done);
-      });
-    }
-
     function nextPaint() {
       return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     }
 
-    async function renderFrame(anim, targetCanvas, frame, asPixels) {
-      anim.goToAndStop(frame, true);
+    async function waitForFonts(features) {
+      if (!features?.textLayer || !document.fonts?.ready) {
+        return { timedOut: false, label: "fonts", skipped: true };
+      }
+      return waitWithTimeout(document.fonts.ready, WAIT_TIMEOUTS.fonts, "fonts");
+    }
+
+    async function waitForRenderReady(anim, features, renderer) {
+      const startedAt = performance.now();
+      const selector = renderer === "canvas" ? "canvas" : "svg";
+      const domPromise = Promise.any([
+        waitForAnimationEvent(anim, "DOMLoaded", WAIT_TIMEOUTS.dom, { rejectOnTimeout: true }),
+        waitForCondition(() => renderHost.querySelector(selector), WAIT_TIMEOUTS.dom, `${renderer} DOM`)
+      ]);
+      const imagesPromise = features?.imageAsset
+        ? waitForAnimationEvent(anim, "loaded_images", WAIT_TIMEOUTS.images, { rejectOnTimeout: true })
+        : Promise.resolve({ timedOut: false, label: "loaded_images", skipped: true });
+      const dom = await domPromise;
+      const images = await imagesPromise;
+      const fonts = await waitForFonts(features);
       await nextPaint();
+      const elapsedMs = Math.round(performance.now() - startedAt);
+      debugLog("renderer-ready", { renderer, elapsedMs, dom, images, fonts });
+      return { elapsedMs, dom, images, fonts };
+    }
+
+    async function waitForFrameDraw(anim, frame, renderer) {
+      const drawnFrame = waitForAnimationEvent(anim, "drawnFrame", WAIT_TIMEOUTS.frame);
+      anim.goToAndStop(frame, true);
+      const result = await drawnFrame;
+      if (result.timedOut) {
+        debugLog("frame-draw-timeout", { renderer, frame, timeoutMs: WAIT_TIMEOUTS.frame });
+      } else {
+        debugLog("frame-drawn", { renderer, frame });
+      }
+      await nextPaint();
+      return result;
+    }
+
+    function isCanvasBlank(canvas) {
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!canvas.width || !canvas.height) return true;
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      const pixelCount = canvas.width * canvas.height;
+      const stride = Math.max(1, Math.floor(pixelCount / 12000));
+      for (let pixel = 0; pixel < pixelCount; pixel += stride) {
+        if (data[pixel * 4 + 3] !== 0) return false;
+      }
+      if (data[(pixelCount - 1) * 4 + 3] !== 0) return false;
+      return true;
+    }
+
+    function frameToOutput(targetCanvas, asPixels) {
+      if (asPixels) {
+        const ctx = targetCanvas.getContext("2d", { willReadFrequently: true });
+        return ctx.getImageData(0, 0, targetCanvas.width, targetCanvas.height).data.buffer;
+      }
+      return new Promise((resolve, reject) => {
+        targetCanvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error(t("pngFrameFailed")));
+        }, "image/png");
+      });
+    }
+
+    async function renderCanvasFrame(anim, targetCanvas, frame, asPixels) {
+      await waitForFrameDraw(anim, frame, "canvas");
       const sourceCanvas = renderHost.querySelector("canvas");
       if (!sourceCanvas) {
         throw new Error(t("renderCanvasFailed"));
@@ -1114,19 +1389,116 @@
       const offsetX = (targetCanvas.width - scaledWidth) / 2;
       const offsetY = (targetCanvas.height - scaledHeight) / 2;
       ctx.drawImage(sourceCanvas, offsetX, offsetY, scaledWidth, scaledHeight);
-      if (asPixels) {
-        return ctx.getImageData(0, 0, targetCanvas.width, targetCanvas.height).data.buffer;
-      }
-      return new Promise((resolve, reject) => {
-        targetCanvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error(t("pngFrameFailed")));
-        }, "image/png");
+      return { output: await frameToOutput(targetCanvas, asPixels), blank: isCanvasBlank(targetCanvas) };
+    }
+
+    function hasUnsafeSvgReferences(svg) {
+      return [...svg.querySelectorAll("image")].some((image) => {
+        const href = image.getAttribute("href") || image.getAttribute("xlink:href") || "";
+        if (!href || href.startsWith("data:") || href.startsWith("blob:") || href.startsWith("#")) return false;
+        return true;
       });
     }
 
-    function selectedFormat() {
-      return formatInputs.find((input) => input.checked)?.value || "apng";
+    async function decodeSvgToImage(svgText) {
+      const blob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      try {
+        const image = new Image();
+        image.decoding = "async";
+        image.src = url;
+        await waitWithTimeout(
+          image.decode ? image.decode() : new Promise((resolve, reject) => {
+            image.onload = resolve;
+            image.onerror = reject;
+          }),
+          WAIT_TIMEOUTS.svgImageDecode,
+          "svg image decode",
+          { rejectOnTimeout: true }
+        );
+        return image;
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    async function renderSvgFrame(anim, targetCanvas, frame, asPixels, size) {
+      await waitForFrameDraw(anim, frame, "svg");
+      const sourceSvg = renderHost.querySelector("svg");
+      if (!sourceSvg) {
+        throw new Error("SVG 回退失败：没有找到可序列化的 SVG 画面");
+      }
+      if (hasUnsafeSvgReferences(sourceSvg)) {
+        throw new Error("SVG 回退失败：动画包含外链图片，无法安全绘制到透明 Canvas");
+      }
+
+      const svg = sourceSvg.cloneNode(true);
+      svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      svg.setAttribute("width", String(size));
+      svg.setAttribute("height", String(size));
+      if (!svg.getAttribute("viewBox")) {
+        svg.setAttribute("viewBox", `0 0 ${Number(animationData?.w) || size} ${Number(animationData?.h) || size}`);
+      }
+
+      const image = await decodeSvgToImage(new XMLSerializer().serializeToString(svg));
+      const ctx = targetCanvas.getContext("2d", { willReadFrequently: true });
+      ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+      const scaledWidth = targetCanvas.width * previewScale;
+      const scaledHeight = targetCanvas.height * previewScale;
+      const offsetX = (targetCanvas.width - scaledWidth) / 2;
+      const offsetY = (targetCanvas.height - scaledHeight) / 2;
+      ctx.drawImage(image, offsetX, offsetY, scaledWidth, scaledHeight);
+      return { output: await frameToOutput(targetCanvas, asPixels), blank: isCanvasBlank(targetCanvas) };
+    }
+
+    async function renderFramesWithRenderer(renderer, targetCanvas, frameCount, start, end, asPixels, size) {
+      renderHost.innerHTML = "";
+      renderHost.style.width = `${size}px`;
+      renderHost.style.height = `${size}px`;
+      debugLog("renderer-start", { renderer, frameCount, start, end, features: featureReport });
+
+      const renderAnim = lottie.loadAnimation({
+        container: renderHost,
+        renderer,
+        loop: false,
+        autoplay: false,
+        animationData: cloneAnimationData(animationData),
+        rendererSettings: {
+          clearCanvas: true,
+          preserveAspectRatio: "xMidYMid meet"
+        }
+      });
+
+      try {
+        await waitForRenderReady(renderAnim, featureReport, renderer);
+
+        const frames = [];
+        let blankCount = 0;
+        for (let index = 0; index < frameCount; index += 1) {
+          const progress = index / frameCount;
+          const frame = start + progress * (end - start);
+          const rendered = renderer === "canvas"
+            ? await renderCanvasFrame(renderAnim, targetCanvas, frame, asPixels)
+            : await renderSvgFrame(renderAnim, targetCanvas, frame, asPixels, size);
+          frames.push(rendered.output);
+          if (rendered.blank) blankCount += 1;
+          if (index % 2 === 0 || index === frameCount - 1) {
+            setProgress(((index + 1) / frameCount) * 70);
+            setStatusKey("rendering", { current: index + 1, total: frameCount });
+            await new Promise((resolve) => setTimeout(resolve, 0));
+          }
+        }
+
+        if (blankCount === frameCount) {
+          throw new Error(`${renderer} renderer produced only blank frames`);
+        }
+
+        debugLog("renderer-finished", { renderer, frameCount, blankCount });
+        return frames;
+      } finally {
+        renderAnim.destroy();
+        renderHost.innerHTML = "";
+      }
     }
 
     function updateFormatUi() {
@@ -1137,6 +1509,7 @@
         sequence: t("exportSequence")
       };
       exportButtonText.textContent = labels[selectedFormat()];
+      applySizePresetForFormat();
     }
 
     function downloadBlob(blob, filename) {
@@ -1235,7 +1608,11 @@
       playButton.disabled = true;
       setProgress(0);
 
-      const size = clampNumber(sizeInput.value, 128, 4096);
+      const preset = currentSizePreset();
+      const size = selectedFormat() === "gif"
+        ? nearestSizePreset(clampNumber(sizeInput.value, preset.min, preset.max), preset.values)
+        : clampNumber(sizeInput.value, preset.min, preset.max);
+      syncExportSize(size);
       const fps = Math.max(1, Math.min(120, Number(fpsInput.value) || 30));
       const format = selectedFormat();
       const { start, end } = getFrameBounds();
@@ -1244,41 +1621,26 @@
       const targetCanvas = document.createElement("canvas");
       targetCanvas.width = size;
       targetCanvas.height = size;
-      renderHost.innerHTML = "";
-      renderHost.style.width = `${size}px`;
-      renderHost.style.height = `${size}px`;
-
-      let renderAnim = null;
 
       try {
         setStatusKey("preparingRender");
-        renderAnim = lottie.loadAnimation({
-          container: renderHost,
-          renderer: "canvas",
-          loop: false,
-          autoplay: false,
-          animationData,
-          rendererSettings: {
-            clearCanvas: true,
-            preserveAspectRatio: "xMidYMid meet"
-          }
-        });
-        await waitForAnimation(renderAnim, "DOMLoaded");
-        await nextPaint();
-
-        const frames = [];
         const asPixels = format === "apng";
+        let frames;
+        let exportRenderer = "canvas";
 
-        for (let index = 0; index < frameCount; index += 1) {
-          const progress = index / frameCount;
-          const frame = start + progress * (end - start);
-          frames.push(await renderFrame(renderAnim, targetCanvas, frame, asPixels));
-          if (index % 2 === 0 || index === frameCount - 1) {
-            setProgress(((index + 1) / frameCount) * 70);
-            setStatusKey("rendering", { current: index + 1, total: frameCount });
-            await new Promise((resolve) => setTimeout(resolve, 0));
-          }
+        try {
+          frames = await renderFramesWithRenderer("canvas", targetCanvas, frameCount, start, end, asPixels, size);
+        } catch (canvasError) {
+          debugLog("canvas-renderer-failed", {
+            stage: "render",
+            message: canvasError?.message || String(canvasError),
+            features: featureReport
+          });
+          exportRenderer = "svg";
+          debugLog("svg-fallback-triggered", { reason: canvasError?.message || String(canvasError) });
+          frames = await renderFramesWithRenderer("svg", targetCanvas, frameCount, start, end, asPixels, size);
         }
+        debugLog("export-renderer-selected", { renderer: exportRenderer });
 
         let blob;
         let filename;
@@ -1304,12 +1666,16 @@
         setStatusKey("complete", { filename });
       } catch (error) {
         const message = error?.message || t("exportFailed");
+        debugLog("export-failed", {
+          stage: "export",
+          message,
+          features: featureReport
+        });
         const hint = message.includes("tainted")
           ? t("tainted")
           : message;
         setStatus(hint, true);
       } finally {
-        if (renderAnim) renderAnim.destroy();
         renderHost.innerHTML = "";
         isExporting = false;
         exportButton.disabled = !animationData;
@@ -1338,8 +1704,8 @@
       if (file) loadFile(file);
     });
 
-    sizeRange.addEventListener("input", () => syncNumeric(sizeRange, sizeInput, 128, 4096, sizeRange.value));
-    sizeInput.addEventListener("change", () => syncNumeric(sizeRange, sizeInput, 128, 4096, sizeInput.value));
+    sizeRange.addEventListener("input", () => syncExportSize(sizeRange.value, { snapToPreset: selectedFormat() === "gif" }));
+    sizeInput.addEventListener("change", () => syncExportSize(sizeInput.value, { snapToPreset: selectedFormat() === "gif" }));
     fpsRange.addEventListener("input", () => syncFrameRate(fpsRange.value));
     fpsInput.addEventListener("change", () => syncFrameRate(fpsInput.value));
     modeSelect.addEventListener("change", updateFrameEstimate);
@@ -1355,7 +1721,7 @@
     }, { passive: false });
 
     sizeChips.forEach((chip) => {
-      chip.addEventListener("click", () => syncNumeric(sizeRange, sizeInput, 128, 4096, chip.dataset.size));
+      chip.addEventListener("click", () => syncExportSize(chip.dataset.size));
     });
 
     playButton.addEventListener("click", () => {
@@ -1368,6 +1734,9 @@
     });
 
     formatInputs.forEach((input) => input.addEventListener("change", updateFormatUi));
+    formatOptions.forEach((option) => {
+      option.addEventListener("click", () => requestAnimationFrame(updateFormatUi));
+    });
     languageMenuButton.addEventListener("click", () => {
       const willOpen = languageMenu.hidden;
       languageMenu.hidden = !willOpen;
