@@ -975,6 +975,54 @@
       return JSON.parse(JSON.stringify(data));
     }
 
+    /**
+     * Applies narrowly-scoped compatibility rules to a disposable animationData clone.
+     *
+     * The parsed upload remains the source of truth and must never be normalized in place:
+     * lottie-web mutates animationData while loading, and future preview/export instances
+     * each need an independent copy. New exporter-specific rules belong here so playback,
+     * export, and UI code do not accumulate separate compatibility behavior.
+     */
+    function applyLottieCompatibilityPatch(clonedData) {
+      const appliedRules = {
+        dashNameFallback: 0
+      };
+
+      const visit = (value) => {
+        if (!value || typeof value !== "object") return;
+
+        // Compatibility rule 1: some Lottie exporters write dash entries with `n` but no
+        // `nm`. lottie-web 5.13.0's expression stroke interface uses `shape.d[i].nm` as an
+        // Object.defineProperty key; multiple missing names become `undefined` and abort
+        // SVG/Canvas initialization with "Cannot redefine property: undefined". Supplying
+        // the existing dash identifier as its name matches the intended expression lookup.
+        if (!Array.isArray(value) && value.ty === "st" && Array.isArray(value.d)) {
+          value.d.forEach((dash) => {
+            if (
+              dash
+              && typeof dash === "object"
+              && dash.nm == null
+              && typeof dash.n === "string"
+              && dash.n.trim()
+            ) {
+              dash.nm = dash.n;
+              appliedRules.dashNameFallback += 1;
+            }
+          });
+        }
+
+        Object.values(value).forEach(visit);
+      };
+
+      visit(clonedData);
+      debugLog("compatibility-patch", appliedRules);
+      return clonedData;
+    }
+
+    function createCompatibleAnimationData(data) {
+      return applyLottieCompatibilityPatch(cloneAnimationData(data));
+    }
+
     function scanLottieFeatures(data) {
       const report = {
         imageAsset: false,
@@ -1238,7 +1286,7 @@
         renderer: "svg",
         loop: true,
         autoplay: true,
-        animationData: cloneAnimationData(animationData)
+        animationData: createCompatibleAnimationData(animationData)
       });
     }
 
@@ -1462,7 +1510,7 @@
         renderer,
         loop: false,
         autoplay: false,
-        animationData: cloneAnimationData(animationData),
+        animationData: createCompatibleAnimationData(animationData),
         rendererSettings: {
           clearCanvas: true,
           preserveAspectRatio: "xMidYMid meet"
