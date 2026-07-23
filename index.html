@@ -259,6 +259,38 @@
       height: 42px;
     }
 
+    .background-option {
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      cursor: pointer;
+    }
+
+    .background-option input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: #000000;
+    }
+
+    .background-option:has(input:disabled) {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .background-swatch {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 16px;
+      border: 1px solid #999999;
+      background: transparent;
+    }
+
+    .background-swatch[hidden] {
+      display: none;
+    }
+
     .quick-sizes {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -701,6 +733,14 @@
             </select>
           </div>
 
+          <div class="field">
+            <label class="background-option" for="removeBackgroundInput">
+              <input id="removeBackgroundInput" type="checkbox" disabled>
+              <span data-i18n="removeBackground">去除纯色背景</span>
+              <span class="background-swatch" id="backgroundSwatch" aria-hidden="true" hidden></span>
+            </label>
+          </div>
+
           <div class="actions">
             <button class="button secondary" id="playButton" type="button" disabled>
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -782,7 +822,7 @@
       zh: {
         title: "Lottie 动画格式转换", subtitle: "把 Lottie JSON 转成 PNG 动图、ProRes 4444 MOV、GIF 或 PNG 序列",
         upload: "选择或拖入 JSON 文件", exportFormat: "导出格式", pngAnimated: "PNG 动图", gifAnimated: "GIF 动图",
-        pngSequence: "PNG 序列 ZIP", exportSize: "导出尺寸", fps: "帧率", exportRange: "导出范围",
+        pngSequence: "PNG 序列 ZIP", exportSize: "导出尺寸", fps: "帧率", exportRange: "导出范围", removeBackground: "去除纯色背景",
         full: "完整动画", first3: "前 3 秒", loop: "自动取一个循环段", preview: "预览",
         exportApng: "导出 PNG 动图", exportMov: "导出 MOV", exportGif: "导出 GIF", exportSequence: "导出 PNG 序列",
         previewArea: "预览区", notLoaded: "未载入", emptyPreview: "动画载入后会在这里循环播放，透明区域用格子背景显示",
@@ -799,7 +839,7 @@
       en: {
         title: "Lottie Animation Converter", subtitle: "Convert Lottie JSON to animated PNG, ProRes 4444 MOV, GIF, or PNG sequences",
         upload: "Choose or drop a JSON file", exportFormat: "Export format", pngAnimated: "Animated PNG", gifAnimated: "Animated GIF",
-        pngSequence: "PNG sequence ZIP", exportSize: "Export size", fps: "Frame rate", exportRange: "Export range",
+        pngSequence: "PNG sequence ZIP", exportSize: "Export size", fps: "Frame rate", exportRange: "Export range", removeBackground: "Remove solid background",
         full: "Full animation", first3: "First 3 seconds", loop: "Auto loop segment", preview: "Preview",
         exportApng: "Export animated PNG", exportMov: "Export MOV", exportGif: "Export GIF", exportSequence: "Export PNG sequence",
         previewArea: "Preview", notLoaded: "Not loaded", emptyPreview: "The animation will loop here; transparent areas use a checkerboard",
@@ -816,7 +856,7 @@
       fr: {
         title: "Convertisseur d'animations Lottie", subtitle: "Convertissez un JSON Lottie en PNG animé, MOV ProRes 4444, GIF ou séquence PNG",
         upload: "Choisir ou déposer un fichier JSON", exportFormat: "Format d'export", pngAnimated: "PNG animé", gifAnimated: "GIF animé",
-        pngSequence: "Séquence PNG ZIP", exportSize: "Taille d'export", fps: "Fréquence", exportRange: "Plage d'export",
+        pngSequence: "Séquence PNG ZIP", exportSize: "Taille d'export", fps: "Fréquence", exportRange: "Plage d'export", removeBackground: "Supprimer le fond uni",
         full: "Animation complète", first3: "3 premières secondes", loop: "Segment en boucle auto", preview: "Aperçu",
         exportApng: "Exporter le PNG animé", exportMov: "Exporter le MOV", exportGif: "Exporter le GIF", exportSequence: "Exporter la séquence PNG",
         previewArea: "Aperçu", notLoaded: "Non chargé", emptyPreview: "L'animation tournera ici ; les zones transparentes utilisent un damier",
@@ -852,6 +892,8 @@
     const fpsRange = document.querySelector("#fpsRange");
     const fpsInput = document.querySelector("#fpsInput");
     const modeSelect = document.querySelector("#modeSelect");
+    const removeBackgroundInput = document.querySelector("#removeBackgroundInput");
+    const backgroundSwatch = document.querySelector("#backgroundSwatch");
     const formatInputs = [...document.querySelectorAll('input[name="exportFormat"]')];
     const formatOptions = [...document.querySelectorAll(".format-option")];
     const sizeChips = [...document.querySelectorAll("[data-size]")];
@@ -870,6 +912,7 @@
     let currentLanguage = "zh";
     let sourceMeta = null;
     let featureReport = null;
+    let removableBackground = null;
     let lastStatus = null;
     const SIZE_PRESETS = {
       default: { values: [512, 1024, 2048, 4096], min: 128, max: 4096, step: 64 },
@@ -982,6 +1025,97 @@
       return JSON.parse(JSON.stringify(data));
     }
 
+    function readStaticLottieValue(property, fallback) {
+      if (property == null) return fallback;
+      if (typeof property !== "object") return property;
+      if (property.a === 1 || property.s === true || property.k == null) return null;
+      if (Array.isArray(property.k) && property.k[0] && typeof property.k[0] === "object") return null;
+      return property.k;
+    }
+
+    /**
+     * Finds one removable top-level solid background without changing animation data.
+     * Only a static, bottom-most solid that covers the complete composition for its full
+     * duration is accepted. Restricting detection to the root composition avoids removing
+     * intentional solid artwork inside precomps.
+     */
+    function detectRemovableBackground(data) {
+      if (!data || !Array.isArray(data.layers)) return null;
+      const width = Number(data.w) || 0;
+      const height = Number(data.h) || 0;
+      const compIn = Number(data.ip) || 0;
+      const compOut = Number(data.op) || 0;
+      if (!width || !height) return null;
+
+      for (let index = data.layers.length - 1; index >= 0; index -= 1) {
+        const layer = data.layers[index];
+        if (!layer || layer.hd === true || [3, 6, 13].includes(layer.ty)) continue;
+        if (
+          layer.ty !== 1
+          || layer.parent != null
+          || layer.tt != null
+          || layer.td != null
+          || Number(layer.bm || 0) !== 0
+          || (Array.isArray(layer.masksProperties) && layer.masksProperties.length)
+          || typeof layer.sc !== "string"
+          || Number(layer.sw) <= 0
+          || Number(layer.sh) <= 0
+          || Number(layer.ip ?? compIn) > compIn
+          || Number(layer.op ?? compOut) < compOut
+        ) {
+          return null;
+        }
+
+        const transform = layer.ks || {};
+        const anchor = readStaticLottieValue(transform.a, [0, 0, 0]);
+        const position = readStaticLottieValue(transform.p, [0, 0, 0]);
+        const scale = readStaticLottieValue(transform.s, [100, 100, 100]);
+        const rotation = readStaticLottieValue(transform.r ?? transform.rz, 0);
+        const opacity = readStaticLottieValue(transform.o, 100);
+        if (
+          !Array.isArray(anchor)
+          || !Array.isArray(position)
+          || !Array.isArray(scale)
+          || !Number.isFinite(Number(rotation))
+          || Math.abs(Number(rotation)) > 0.001
+          || Number(opacity) <= 0
+        ) {
+          return null;
+        }
+
+        const scaleX = Number(scale[0]) / 100;
+        const scaleY = Number(scale[1]) / 100;
+        if (!(scaleX > 0) || !(scaleY > 0)) return null;
+        const left = Number(position[0]) - Number(anchor[0]) * scaleX;
+        const top = Number(position[1]) - Number(anchor[1]) * scaleY;
+        const right = left + Number(layer.sw) * scaleX;
+        const bottom = top + Number(layer.sh) * scaleY;
+        const tolerance = 1;
+        if (left <= tolerance && top <= tolerance && right >= width - tolerance && bottom >= height - tolerance) {
+          return { index, color: layer.sc, layerIndex: layer.ind ?? null };
+        }
+        return null;
+      }
+      return null;
+    }
+
+    function removeDetectedBackground(clonedData) {
+      const candidate = detectRemovableBackground(clonedData);
+      if (!candidate) return false;
+      clonedData.layers.splice(candidate.index, 1);
+      debugLog("background-removed", candidate);
+      return true;
+    }
+
+    function updateBackgroundControl() {
+      removableBackground = detectRemovableBackground(animationData);
+      removeBackgroundInput.disabled = !removableBackground;
+      if (!removableBackground) removeBackgroundInput.checked = false;
+      backgroundSwatch.hidden = !removableBackground;
+      backgroundSwatch.style.backgroundColor = removableBackground?.color || "transparent";
+      debugLog("background-detected", removableBackground || { detected: false });
+    }
+
     /**
      * Applies narrowly-scoped compatibility rules to a disposable animationData clone.
      *
@@ -1058,7 +1192,9 @@
     }
 
     function createCompatibleAnimationData(data) {
-      return applyLottieCompatibilityPatch(cloneAnimationData(data));
+      const clonedData = applyLottieCompatibilityPatch(cloneAnimationData(data));
+      if (removeBackgroundInput.checked) removeDetectedBackground(clonedData);
+      return clonedData;
     }
 
     function scanLottieFeatures(data) {
@@ -1342,6 +1478,8 @@
 
         animationData = data;
         featureReport = scanLottieFeatures(data);
+        removeBackgroundInput.checked = false;
+        updateBackgroundControl();
         previewScale = 1;
         previewTargetScale = 1;
         if (zoomAnimationFrame !== null) {
@@ -1382,6 +1520,9 @@
         animationData = null;
         sourceMeta = null;
         featureReport = null;
+        removableBackground = null;
+        removeBackgroundInput.checked = false;
+        updateBackgroundControl();
         destroyPreview();
         previewHost.innerHTML = `<div class="empty">${t("noPreview")}</div>`;
         playButton.disabled = true;
@@ -1795,6 +1936,14 @@
     fpsRange.addEventListener("input", () => syncFrameRate(fpsRange.value));
     fpsInput.addEventListener("change", () => syncFrameRate(fpsInput.value));
     modeSelect.addEventListener("change", updateFrameEstimate);
+    removeBackgroundInput.addEventListener("change", () => {
+      if (!animationData || isExporting) return;
+      debugLog("background-removal-changed", {
+        enabled: removeBackgroundInput.checked,
+        candidate: removableBackground
+      });
+      loadPreview();
+    });
 
     previewStage.addEventListener("wheel", (event) => {
       if (!animationData || isExporting) return;
