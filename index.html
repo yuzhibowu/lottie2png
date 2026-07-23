@@ -992,7 +992,8 @@
      */
     function applyLottieCompatibilityPatch(clonedData) {
       const appliedRules = {
-        dashNameFallback: 0
+        dashNameFallback: 0,
+        legacy3dRotationDefaults: 0
       };
 
       const visit = (value) => {
@@ -1014,6 +1015,36 @@
             ) {
               dash.nm = dash.n;
               appliedRules.dashNameFallback += 1;
+            }
+          });
+        }
+
+        // Compatibility rule 2: legacy Bodymovin/Lottie exporters can emit 3D layers
+        // with only some of rx/ry/rz/or. lottie-web 5.13.0 switches to its 3D transform
+        // branch as soon as `rx` exists, then reads every sibling property (including
+        // `or.k`) without a fallback. That aborts both SVG and Canvas initialization with
+        // "Cannot read properties of undefined (reading 'k')". Complete only a 3D layer
+        // that already uses at least one 3D rotation property, preserving every supplied
+        // value and applying After Effects' neutral defaults to missing siblings. As with
+        // all compatibility rules, this disposable clone is patched instead of the user's
+        // original JSON so preview and export retain an immutable source of truth.
+        if (
+          !Array.isArray(value)
+          && value.ddd === 1
+          && value.ks
+          && typeof value.ks === "object"
+          && ["rx", "ry", "rz", "or"].some((key) => value.ks[key] != null)
+        ) {
+          const defaults = {
+            rx: { a: 0, k: 0 },
+            ry: { a: 0, k: 0 },
+            rz: { a: 0, k: 0 },
+            or: { a: 0, k: [0, 0, 0] }
+          };
+          Object.entries(defaults).forEach(([key, fallback]) => {
+            if (value.ks[key] == null) {
+              value.ks[key] = fallback;
+              appliedRules.legacy3dRotationDefaults += 1;
             }
           });
         }
